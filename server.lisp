@@ -32,7 +32,8 @@
         (with-output-to-string (str)
           (let ((cl-markup:*output-stream* str))
             (html5 (:head
-                    (:title "try-wasm-with-cl")))))))
+                    (:title "try-wasm-with-cl")
+                    (:script :src "js/main.js" nil)))))))
 
 (defun stop-server ()
   (when *server*
@@ -43,7 +44,15 @@
   (stop-server)
   (setf *server*
         (clackup
-         (builder (:static :path (lambda (path)
+         (builder (lambda (app)
+                    (lambda (env)
+                      (let ((res (funcall app env))
+                            (path (getf env :path-info)))
+                        (when (scan "\\.wasm$" path)
+                          (setf (getf (cadr res) :content-type)
+                                "application/wasm"))
+                        res)))
+                  (:static :path (lambda (path)
                                    (when (scan "^(?:/images/|/css/|/js/|/wasm/|/robot\\.txt$|/favicon\\.ico$)"
                                                path)
                                      path))
