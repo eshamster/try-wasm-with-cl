@@ -3,6 +3,7 @@
   (:export :start-server
            :stop-server)
   (:import-from :try-wasm-with-cl/compiler
+                :ps2js
                 :wat2wasm)
   (:import-from :clack
                 :clackup
@@ -27,6 +28,9 @@
   (merge-pathnames "static/"
                    (asdf:component-pathname
                     (asdf:find-system :try-wasm-with-cl))))
+
+(defvar *js-path*
+  (merge-pathnames "js/main.js" *script-dir*))
 
 (defvar *wat-path*
   (merge-pathnames "wasm/main.wat" *script-dir*))
@@ -57,10 +61,16 @@
                       (let ((res (funcall app env))
                             (path (getf env :path-info)))
                         (when (scan "\\.wasm$" path)
-                          (print 'test)
                           (wat2wasm *wat-path* *wasm-path*)
                           (setf (getf (cadr res) :content-type)
                                 "application/wasm"))
+                        res)))
+                  (lambda (app)
+                    (lambda (env)
+                      (let ((res (funcall app env))
+                            (path (getf env :path-info)))
+                        (when (scan "\\main.js$" path)
+                          (ps2js *js-path*))
                         res)))
                   (:static :path (lambda (path)
                                    (when (scan "^(?:/images/|/css/|/js/|/wasm/|/robot\\.txt$|/favicon\\.ico$)"
