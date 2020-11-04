@@ -2,6 +2,8 @@
   (:use :cl)
   (:export :start-server
            :stop-server)
+  (:import-from :try-wasm-with-cl/compiler
+                :wat2wasm)
   (:import-from :clack
                 :clackup
                 :stop)
@@ -26,6 +28,12 @@
                    (asdf:component-pathname
                     (asdf:find-system :try-wasm-with-cl))))
 
+(defvar *wat-path*
+  (merge-pathnames "wasm/main.wat" *script-dir*))
+
+(defvar *wasm-path*
+  (merge-pathnames "wasm/main.wasm" *script-dir*))
+
 (setf (route *app* "/" :method :GET)
       (lambda (params)
         (declare (ignore params))
@@ -49,6 +57,8 @@
                       (let ((res (funcall app env))
                             (path (getf env :path-info)))
                         (when (scan "\\.wasm$" path)
+                          (print 'test)
+                          (wat2wasm *wat-path* *wasm-path*)
                           (setf (getf (cadr res) :content-type)
                                 "application/wasm"))
                         res)))
