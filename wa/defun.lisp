@@ -6,7 +6,8 @@
   (:import-from :try-wasm-with-cl/wa/import
                 :get-imported-names)
   (:import-from :try-wasm-with-cl/wa/type
-                :convert-type)
+                :convert-type
+                :parse-typeuse)
   (:import-from :try-wasm-with-cl/wa/utils
                 :parse-arg-name
                 :clone-list-with-modification)
@@ -32,7 +33,7 @@
   `(progn (setf (gethash ',name *funcs*)
                 '(|func|
                   ,(parse-arg-name name)
-                  ,@(parse-args args)
+                  ,@(parse-typeuse (list args result))
                   ,@(parse-body body (mapcar #'car args))))))
 
 ;; ((a i32) (b i32))
@@ -44,6 +45,8 @@
                 ,(parse-arg-name name)
                 ,(convert-type type)))))
     (mapcar #'parse-arg args)))
+
+(defun parse-result ())
 
 (defun parse-body (body arg-names)
   (let ((vars (append arg-names

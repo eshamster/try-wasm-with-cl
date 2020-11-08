@@ -8,8 +8,15 @@
 
 (defimport.wat console.log (func log ((i32))))
 
+(defun.wat sample ((x i32)) (i32)
+  |get_local| x
+  |i32.const| 100
+  |i32.add|
+  |return|)
+
 (defun.wat test-print () ()
-  |i32.const| 5555
+  |i32.const| 200
+  |call| sample
   |call| log)
 
 (defexport.wat exported-func (func test-print))
