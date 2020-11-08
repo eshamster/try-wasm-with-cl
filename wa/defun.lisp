@@ -29,9 +29,11 @@
 ;;       (probably it should be done at printing)
 (defmacro defun.wat (name args result &body body)
   ;; TODO: process "result"
-  `(progn (setf (gethash ,name *funcs*)
-                (|func| ,@(parse-args args)
-                        ,@(parse-body body (mapcar #'car args))))))
+  `(progn (setf (gethash ',name *funcs*)
+                '(|func|
+                  ,(parse-arg-name name)
+                  ,@(parse-args args)
+                  ,@(parse-body body (mapcar #'car args))))))
 
 ;; ((a i32) (b i32))
 ;; -> ((|param| $A |i32|) (|param| $B |i32|))

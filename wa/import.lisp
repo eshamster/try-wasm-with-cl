@@ -36,11 +36,11 @@
   ;;     -> (import "console" "log" (func $log (param i32)))
   (multiple-value-bind (parsed-import-desc wat-name)
       (parse-import-desc import-desc)
-    `(progn (setf (gethash ,mod-nm *imports*)
-                  (make-import-info :wat-name ,wat-name
+    `(progn (setf (gethash ',mod-nm *imports*)
+                  (make-import-info :wat-name ',wat-name
                                     :body '(|import|
                                             ,@(parse-mod-nm mod-nm)
-                                            ,@parsed-import-desc))))))
+                                            ,parsed-import-desc))))))
 
 (defun parse-mod-nm (mod-nm)
   (let* ((*print-case* :downcase)

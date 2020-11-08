@@ -23,7 +23,7 @@
 (defmacro defexport.wat (js-func-name export-desc)
   ;; Ex. (defexport.wat js-func-name (func foo))
   ;;     -> (export "js_func_name" (func $foo))
-  `(setf (gethash ,js-func-name *imports*)
+  `(setf (gethash ',js-func-name *exports*)
          '(|export|
            ,(symbol-to-string js-func-name)
            ,(parse-export-desc export-desc))))
