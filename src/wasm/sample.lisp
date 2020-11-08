@@ -11,11 +11,10 @@
 (defun.wat sample ((x i32)) (i32)
   |get_local| x
   |i32.const| 100
-  |i32.add|
-  |return|)
+  |i32.add|)
 
 (defun.wat test-print () ()
-  |i32.const| 200
+  |i32.const| 300
   |call| sample
   |call| log)
 

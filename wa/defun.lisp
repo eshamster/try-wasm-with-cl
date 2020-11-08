@@ -30,23 +30,13 @@
 ;;       (probably it should be done at printing)
 (defmacro defun.wat (name args result &body body)
   ;; TODO: process "result"
-  `(progn (setf (gethash ',name *funcs*)
-                '(|func|
-                  ,(parse-arg-name name)
-                  ,@(parse-typeuse (list args result))
-                  ,@(parse-body body (mapcar #'car args))))))
-
-;; ((a i32) (b i32))
-;; -> ((|param| $A |i32|) (|param| $B |i32|))
-(defun parse-args (args)
-  (flet ((parse-arg (arg)
-           (destructuring-bind (name type) arg
-             `(|param|
-                ,(parse-arg-name name)
-                ,(convert-type type)))))
-    (mapcar #'parse-arg args)))
-
-(defun parse-result ())
+  (multiple-value-bind (parsed-typeuse vars)
+      (parse-typeuse (list args result))
+    `(progn (setf (gethash ',name *funcs*)
+                  '(|func|
+                    ,(parse-arg-name name)
+                    ,@parsed-typeuse
+                    ,@(parse-body body vars))))))
 
 (defun parse-body (body arg-names)
   (let ((vars (append arg-names
