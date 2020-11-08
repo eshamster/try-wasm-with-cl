@@ -3,6 +3,7 @@
   (:export :start-server
            :stop-server)
   (:import-from :try-wasm-with-cl/compiler
+                :cl2wat
                 :ps2js
                 :wat2wasm)
   (:import-from :clack
@@ -61,6 +62,7 @@
                       (let ((res (funcall app env))
                             (path (getf env :path-info)))
                         (when (scan "\\.wasm$" path)
+                          (cl2wat *wat-path*)
                           (wat2wasm *wat-path* *wasm-path*)
                           (setf (getf (cadr res) :content-type)
                                 "application/wasm"))
