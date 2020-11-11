@@ -2,11 +2,11 @@
   (:use :cl)
   (:export :generate-wat-module)
   (:import-from :try-wasm-with-cl/wa/defun
-                :get-func-bodies)
+                :get-func-body-generators)
   (:import-from :try-wasm-with-cl/wa/export
-                :get-export-bodies)
+                :get-export-body-generators)
   (:import-from :try-wasm-with-cl/wa/import
-                :get-import-bodies)
+                :get-import-body-generators)
   (:import-from :try-wasm-with-cl/wa/reserved-word
                 :|module|)
   (:import-from :try-wasm-with-cl/wa/utils
@@ -15,9 +15,9 @@
 
 (defun generate-wat-module% ()
   `(|module|
-    ,@(get-import-bodies)
-    ,@(get-func-bodies)
-    ,@(get-export-bodies)))
+    ,@(mapcar #'funcall (get-import-body-generators))
+    ,@(mapcar #'funcall (get-func-body-generators))
+    ,@(mapcar #'funcall (get-export-body-generators))))
 
 (defun generate-wat-module ()
   (let ((str-list (clone-list-with-modification

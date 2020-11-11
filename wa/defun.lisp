@@ -2,7 +2,7 @@
   (:use :cl
         :try-wasm-with-cl/wa/reserved-word)
   (:export :defun.wat
-           :get-func-bodies)
+           :get-func-body-generators)
   (:import-from :try-wasm-with-cl/wa/import
                 :get-imported-names)
   (:import-from :try-wasm-with-cl/wa/type
@@ -23,20 +23,21 @@
 (defun get-func-names ()
   (hash-table-keys *funcs*))
 
-(defun get-func-bodies ()
+(defun get-func-body-generators ()
   (hash-table-values *funcs*))
 
-;; TODO: convert each symbol: abc-def -> abcDef
-;;       (probably it should be done at printing)
 (defmacro defun.wat (name args result &body body)
-  ;; TODO: process "result"
+  `(progn (setf (gethash ',name *funcs*)
+                (lambda ()
+                  (generate-defun ',name ',args ',result ',body)))))
+
+(defun generate-defun (name args result body)
   (multiple-value-bind (parsed-typeuse vars)
       (parse-typeuse (list args result))
-    `(progn (setf (gethash ',name *funcs*)
-                  '(|func|
-                    ,(parse-arg-name name)
-                    ,@parsed-typeuse
-                    ,@(parse-body body vars))))))
+    `(|func|
+      ,(parse-arg-name name)
+      ,@parsed-typeuse
+      ,@(parse-body body vars))))
 
 (defun parse-body (body arg-names)
   (let ((vars (append arg-names

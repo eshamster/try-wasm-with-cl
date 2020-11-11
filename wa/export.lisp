@@ -1,7 +1,7 @@
 (defpackage :try-wasm-with-cl/wa/export
   (:use :cl)
   (:export :defexport.wat
-           :get-export-bodies)
+           :get-export-body-generators)
   (:import-from :try-wasm-with-cl/wa/reserved-word
                 :|export|
                 :|func|
@@ -17,16 +17,20 @@
 
 (defvar *exports* (make-hash-table))
 
-(defun get-export-bodies ()
+(defun get-export-body-generators ()
   (hash-table-values *exports*))
 
 (defmacro defexport.wat (js-func-name export-desc)
   ;; Ex. (defexport.wat js-func-name (func foo))
   ;;     -> (export "js_func_name" (func $foo))
   `(setf (gethash ',js-func-name *exports*)
-         '(|export|
-           ,(symbol-to-string js-func-name)
-           ,(parse-export-desc export-desc))))
+         (lambda ()
+           (generate-export-body ',js-func-name ',export-desc))))
+
+(defun generate-export-body (js-func-name export-desc)
+  `(|export|
+    ,(symbol-to-string js-func-name)
+    ,(parse-export-desc export-desc)))
 
 (defun parse-export-desc (export-desc)
   (let ((type  (car  export-desc))

@@ -2,7 +2,7 @@
   (:use :cl)
   (:export :defimport.wat
            :get-imported-names
-           :get-import-bodies)
+           :get-import-body-generators)
   (:import-from :try-wasm-with-cl/wa/reserved-word
                 :|import|
                 :|func|
@@ -19,7 +19,7 @@
 
 ;; https://webassembly.github.io/spec/core/text/modules.html#imports
 
-(defstruct import-info wat-name body)
+(defstruct import-info wat-name body-generator)
 
 (defvar *imports* (make-hash-table))
 
@@ -27,8 +27,8 @@
   (mapcar #'import-info-wat-name
           (hash-table-values *imports*)))
 
-(defun get-import-bodies ()
-  (mapcar #'import-info-body
+(defun get-import-body-generators ()
+  (mapcar #'import-info-body-generator
           (hash-table-values *imports*)))
 
 (defmacro defimport.wat (mod-nm import-desc)
@@ -37,10 +37,16 @@
   (multiple-value-bind (parsed-import-desc wat-name)
       (parse-import-desc import-desc)
     `(progn (setf (gethash ',mod-nm *imports*)
-                  (make-import-info :wat-name ',wat-name
-                                    :body '(|import|
-                                            ,@(parse-mod-nm mod-nm)
-                                            ,parsed-import-desc))))))
+                  (make-import-info
+                   :wat-name ',wat-name
+                   :body-generator (lambda ()
+                                     (generate-import-body
+                                      ',mod-nm ',parsed-import-desc)))))))
+
+(defun generate-import-body (mod-nm parsed-import-desc)
+  `(|import|
+    ,@(parse-mod-nm mod-nm)
+    ,parsed-import-desc))
 
 (defun parse-mod-nm (mod-nm)
   (let* ((*print-case* :downcase)
