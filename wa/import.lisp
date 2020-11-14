@@ -1,8 +1,9 @@
 (defpackage :try-wasm-with-cl/wa/import
   (:use :cl)
-  (:export :defimport.wat
-           :get-imported-names
-           :get-import-body-generators)
+  (:export :defimport.wat)
+  (:import-from :try-wasm-with-cl/wa/environment
+                :wsymbol-import
+                :intern.wat)
   (:import-from :try-wasm-with-cl/wa/reserved-word
                 :|import|
                 :|func|
@@ -11,37 +12,21 @@
                 :parse-typeuse)
   (:import-from :try-wasm-with-cl/wa/utils
                 :parse-arg-name)
-  (:import-from :alexandria
-                :hash-table-values)
   (:import-from :cl-ppcre
                 :split))
 (in-package :try-wasm-with-cl/wa/import)
 
 ;; https://webassembly.github.io/spec/core/text/modules.html#imports
 
-(defstruct import-info wat-name body-generator)
-
-(defvar *imports* (make-hash-table))
-
-(defun get-imported-names ()
-  (mapcar #'import-info-wat-name
-          (hash-table-values *imports*)))
-
-(defun get-import-body-generators ()
-  (mapcar #'import-info-body-generator
-          (hash-table-values *imports*)))
-
 (defmacro defimport.wat (mod-nm import-desc)
   ;; Ex. (defimport.wat console.log (func log ((i32))))
   ;;     -> (import "console" "log" (func $log (param i32)))
   (multiple-value-bind (parsed-import-desc wat-name)
       (parse-import-desc import-desc)
-    `(progn (setf (gethash ',mod-nm *imports*)
-                  (make-import-info
-                   :wat-name ',wat-name
-                   :body-generator (lambda ()
-                                     (generate-import-body
-                                      ',mod-nm ',parsed-import-desc)))))))
+    `(progn (setf (wsymbol-import (intern.wat ',wat-name))
+                  (lambda ()
+                    (generate-import-body
+                     ',mod-nm ',parsed-import-desc))))))
 
 (defun generate-import-body (mod-nm parsed-import-desc)
   `(|import|

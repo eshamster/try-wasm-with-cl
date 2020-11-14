@@ -5,9 +5,8 @@
   (:import-from :try-wasm-with-cl/wa/environment
                 :wsymbol-function
                 :intern.wat
-                :wenv-function-symbols)
-  (:import-from :try-wasm-with-cl/wa/import
-                :get-imported-names)
+                :wenv-function-symbols
+                :wenv-import-symbols)
   (:import-from :try-wasm-with-cl/wa/type
                 :convert-type
                 :parse-typeuse)
@@ -15,9 +14,6 @@
                 :parse-arg-name
                 :clone-list-with-modification)
   (:import-from :alexandria
-                :hash-table-keys
-                :hash-table-values
-                :make-keyword
                 :symbolicate))
 (in-package :try-wasm-with-cl/wa/defun)
 
@@ -37,7 +33,7 @@
 (defun parse-body (body arg-names)
   (let ((vars (append arg-names
                       (wenv-function-symbols)
-                      (get-imported-names))))
+                      (wenv-import-symbols))))
     (clone-list-with-modification
      body
      (lambda (sym)
