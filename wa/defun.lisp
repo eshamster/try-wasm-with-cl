@@ -1,8 +1,11 @@
 (defpackage :try-wasm-with-cl/wa/defun
   (:use :cl
         :try-wasm-with-cl/wa/reserved-word)
-  (:export :defun.wat
-           :get-func-body-generators)
+  (:export :defun.wat)
+  (:import-from :try-wasm-with-cl/wa/environment
+                :wsymbol-function
+                :intern.wat
+                :wenv-function-symbols)
   (:import-from :try-wasm-with-cl/wa/import
                 :get-imported-names)
   (:import-from :try-wasm-with-cl/wa/type
@@ -18,16 +21,8 @@
                 :symbolicate))
 (in-package :try-wasm-with-cl/wa/defun)
 
-(defvar *funcs* (make-hash-table))
-
-(defun get-func-names ()
-  (hash-table-keys *funcs*))
-
-(defun get-func-body-generators ()
-  (hash-table-values *funcs*))
-
 (defmacro defun.wat (name args result &body body)
-  `(progn (setf (gethash ',name *funcs*)
+  `(progn (setf (wsymbol-function (intern.wat ',name))
                 (lambda ()
                   (generate-defun ',name ',args ',result ',body)))))
 
@@ -41,7 +36,7 @@
 
 (defun parse-body (body arg-names)
   (let ((vars (append arg-names
-                      (get-func-names)
+                      (wenv-function-symbols)
                       (get-imported-names))))
     (clone-list-with-modification
      body

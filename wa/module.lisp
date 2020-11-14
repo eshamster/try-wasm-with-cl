@@ -1,8 +1,8 @@
 (defpackage :try-wasm-with-cl/wa/module
   (:use :cl)
   (:export :generate-wat-module)
-  (:import-from :try-wasm-with-cl/wa/defun
-                :get-func-body-generators)
+  (:import-from :try-wasm-with-cl/wa/environment
+                :wenv-function-body-generators)
   (:import-from :try-wasm-with-cl/wa/export
                 :get-export-body-generators)
   (:import-from :try-wasm-with-cl/wa/import
@@ -16,7 +16,7 @@
 (defun generate-wat-module% ()
   `(|module|
     ,@(mapcar #'funcall (get-import-body-generators))
-    ,@(mapcar #'funcall (get-func-body-generators))
+    ,@(mapcar #'funcall (wenv-function-body-generators))
     ,@(mapcar #'funcall (get-export-body-generators))))
 
 (defun generate-wat-module ()
