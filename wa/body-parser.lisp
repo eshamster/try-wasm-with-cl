@@ -2,8 +2,12 @@
   (:use :cl)
   (:export :parse-body)
   (:import-from :try-wasm-with-cl/wa/environment
+                :intern.wat
                 :wenv-function-symbols
-                :wenv-import-symbols)
+                :wenv-import-symbols
+                :wsymbol-macro-function)
+  (:import-from :try-wasm-with-cl/wa/defmacro
+                :macroexpand.wat)
   (:import-from :try-wasm-with-cl/wa/utils
                 :parse-arg-name))
 (in-package :try-wasm-with-cl/wa/body-parser)
@@ -35,6 +39,8 @@
          (parse-atom form vars))
         ((special-form-p form)
          (parse-special-form form vars))
+        ((macro-form-p form)
+         (parse-macro-form form vars))
         (t (mapcar (lambda (unit)
                      (parse-form unit vars))
                    form))))
@@ -49,7 +55,7 @@
 (defun parse-special-form (form vars)
   (ecase (car form)
     ('progn `(progn ,@(mapcar (lambda (unit)
-                                (parse-body unit vars))
+                                (parse-form unit vars))
                               (cdr form))))))
 
 (defun special-form-p (form)
@@ -57,3 +63,12 @@
     (('progn)
      t)
     (t nil)))
+
+;; - macro - ;;
+
+(defun parse-macro-form (form vars)
+  ;; TODO: consider environment
+  (parse-form (macroexpand.wat form) vars))
+
+(defun macro-form-p (form)
+  (wsymbol-macro-function (intern.wat (car form))))

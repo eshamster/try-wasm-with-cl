@@ -1,6 +1,7 @@
 (defpackage :try-wasm-with-cl/src/wasm/sample
   (:use :cl)
   (:import-from :try-wasm-with-cl/wa/main
+                :defmacro.wat
                 :defun.wat
                 :defimport.wat
                 :defexport.wat))
@@ -8,9 +9,12 @@
 
 (defimport.wat console.log (func log ((i32))))
 
+(defmacro.wat local-i32-const (x y)
+  `(progn |get_local| ,x
+          |i32.const| ,y))
+
 (defun.wat sample ((x i32)) (i32)
-  (progn |get_local| x
-         |i32.const| 100)
+  (local-i32-const x 100)
   |i32.add|)
 
 (defun.wat test-print () ()
