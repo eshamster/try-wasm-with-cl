@@ -2,6 +2,8 @@
   (:use :cl
         :try-wasm-with-cl/wa/reserved-word)
   (:export :defun.wat)
+  (:import-from :try-wasm-with-cl/wa/body-parser
+                :parse-body)
   (:import-from :try-wasm-with-cl/wa/environment
                 :wsymbol-function
                 :intern.wat
@@ -29,14 +31,3 @@
       ,(parse-arg-name name)
       ,@parsed-typeuse
       ,@(parse-body body vars))))
-
-(defun parse-body (body arg-names)
-  (let ((vars (append arg-names
-                      (wenv-function-symbols)
-                      (wenv-import-symbols))))
-    (clone-list-with-modification
-     body
-     (lambda (sym)
-       (if (find sym vars)
-           (parse-arg-name sym)
-           sym)))))
