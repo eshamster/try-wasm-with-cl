@@ -9,8 +9,8 @@
 (defimport.wat console.log (func log ((i32))))
 
 (defun.wat sample ((x i32)) (i32)
-  |get_local| x
-  |i32.const| 100
+  (progn |get_local| x
+         |i32.const| 100)
   |i32.add|)
 
 (defun.wat test-print () ()

@@ -10,13 +10,13 @@
 (in-package :try-wasm-with-cl/wa/utils)
 
 (defun clone-list-with-modification (list fn-each-sym)
-  (labels ((rec (rest res)
+  (labels ((rec (rest)
              (if (atom rest)
                  (funcall fn-each-sym rest)
                  (mapcar (lambda (unit)
-                           (rec unit res))
+                           (rec unit))
                          rest))))
-    (rec list nil)))
+    (rec list)))
 
 (defun parse-arg-name (arg-name)
   (symbolicate '$ arg-name))
