@@ -12,9 +12,7 @@
 (defun clone-list-with-modification (list fn-each-sym)
   (labels ((rec (rest res)
              (if (atom rest)
-                 (if res
-                     (cons (funcall fn-each-sym rest) res)
-                     (funcall fn-each-sym rest))
+                 (funcall fn-each-sym rest)
                  (mapcar (lambda (unit)
                            (rec unit res))
                          rest))))

@@ -13,8 +13,7 @@
                 :convert-type
                 :parse-typeuse)
   (:import-from :try-wasm-with-cl/wa/utils
-                :parse-arg-name
-                :clone-list-with-modification)
+                :parse-arg-name)
   (:import-from :alexandria
                 :symbolicate))
 (in-package :try-wasm-with-cl/wa/defun)

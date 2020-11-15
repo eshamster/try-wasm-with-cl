@@ -11,31 +11,17 @@
 (defun parse-body (body args)
   (let* ((vars (append args
                        (wenv-function-symbols)
-                       (wenv-import-symbols)))
-         (var-table (vars-to-table vars)))
-    (clone-list-with-modification
-     body
-     (lambda (atom)
-       (parse-atom atom var-table)))))
+                       (wenv-import-symbols))))
+    (parse-body% body vars nil)))
 
-(defun vars-to-table (vars)
-  (let ((res (make-hash-table)))
-    (dolist (var vars)
-      (setf (gethash var res) t))
-    res))
+(defun parse-body% (body vars res)
+  (cond ((atom body)
+         (parse-atom% body vars))
+        (t (mapcar (lambda (unit)
+                     (parse-body% unit vars res))
+                   body))))
 
-(defun parse-atom (atom var-table)
-  (if (gethash atom var-table)
+(defun parse-atom% (atom vars)
+  (if (find atom vars)
       (parse-arg-name atom)
       atom))
-
-(defun clone-list-with-modification (list fn-each-sym)
-  (labels ((rec (rest res)
-             (if (atom rest)
-                 (if res
-                     (cons (funcall fn-each-sym rest) res)
-                     (funcall fn-each-sym rest))
-                 (mapcar (lambda (unit)
-                           (rec unit res))
-                         rest))))
-    (rec list nil)))
