@@ -3,6 +3,7 @@
   (:export :wsymbol-function
            :wsymbol-macro-function
            :wsymbol-import
+           :*global-wat-env*
            :intern.wat
            :wenv-function-symbols
            :wenv-macro-function-symbols
@@ -39,17 +40,26 @@
           (wat-symbol-symbol wsymbol)))
   (setf (wat-symbol-import wsymbol) nil))
 
+(defun wsymbol-function (wsymbol)
+  (wat-symbol-function wsymbol))
+
 (defsetf wsymbol-function (wsymbol) (func)
   `(progn (setf (wat-symbol-function ,wsymbol) ,func)
           (set-macro-function-empty ,wsymbol)
           (set-import-empty ,wsymbol)
           ,wsymbol))
 
+(defun wsymbol-macro-function (wsymbol)
+  (wat-symbol-macro-function wsymbol))
+
 (defsetf wsymbol-macro-function (wsymbol) (macro-func)
   `(progn (set-function-empty ,wsymbol)
           (setf (wat-symbol-macro-function ,wsymbol) ,macro-func)
           (set-import-empty ,wsymbol)
           ,wsymbol))
+
+(defun wsymbol-import (wsymbol)
+  (wat-symbol-import wsymbol))
 
 (defsetf wsymbol-import (wsymbol) (import)
   `(progn (set-function-empty ,wsymbol)
