@@ -7,7 +7,7 @@
                 :defexport.wat))
 (in-package :try-wasm-with-cl/src/wasm/sample)
 
-(defimport.wat console.log (func log ((i32))))
+(defimport.wat log console.log (func ((i32))))
 
 (defmacro.wat local-i32-const (x y)
   `(progn |get_local| ,x
