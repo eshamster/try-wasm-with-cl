@@ -8,16 +8,33 @@
                 :wsymbol-macro-function)
   (:import-from :try-wasm-with-cl/wa/defmacro
                 :macroexpand.wat)
+  (:import-from :try-wasm-with-cl/wa/reserved-word
+                :local)
+  (:import-from :try-wasm-with-cl/wa/type
+                :convert-type)
   (:import-from :try-wasm-with-cl/wa/utils
                 :parse-arg-name))
 (in-package :try-wasm-with-cl/wa/body-parser)
+
+;; --- vars --- ;;
+
+(defstruct vars
+  (lst (list)))
+
+(defun push-var (var vars)
+  (push var (vars-lst vars)))
+
+(defun find-var-in (var vars)
+  (find var (vars-lst vars)))
+
+;; --- parser --- ;;
 
 (defun parse-body (body args)
   (let* ((vars (append args
                        (wenv-function-symbols)
                        (wenv-import-symbols))))
     (flatten-progn-all
-     (parse-form body vars))))
+     (parse-form body (make-vars :lst vars)))))
 
 (defun flatten-progn-all (body)
   ;; Ex. ((progn 1 2) 3 (progn 4 (progn 5))) -> (1 2 3 4 5)
@@ -46,7 +63,7 @@
                    form))))
 
 (defun parse-atom (atom vars)
-  (if (find atom vars)
+  (if (find-var-in atom vars)
       (parse-arg-name atom)
       atom))
 
@@ -54,13 +71,17 @@
 
 (defun parse-special-form (form vars)
   (ecase (car form)
-    ('progn `(progn ,@(mapcar (lambda (unit)
-                                (parse-form unit vars))
-                              (cdr form))))))
+    (progn `(progn ,@(mapcar (lambda (unit)
+                               (parse-form unit vars))
+                             (cdr form))))
+    (local (destructuring-bind (var type) (cdr form)
+             (push-var var vars)
+             `(|local| ,(parse-atom var vars)
+                       ,(convert-type type))))))
 
 (defun special-form-p (form)
   (case (car form)
-    (('progn)
+    ((progn local)
      t)
     (t nil)))
 

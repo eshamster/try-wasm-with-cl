@@ -15,7 +15,9 @@
            :result-keyword-p
 
            :|i32|
-           :i32-keyword-p)
+           :i32-keyword-p
+
+           :local)
   (:import-from :alexandria
                 :symbolicate))
 (in-package :try-wasm-with-cl/wa/reserved-word)
@@ -36,3 +38,7 @@
 (defrw result)
 
 (defrw i32)
+
+;; --- special form --- ;;
+
+(defvar local nil)

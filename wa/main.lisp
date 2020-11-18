@@ -3,9 +3,12 @@
         :try-wasm-with-cl/wa/defun
         :try-wasm-with-cl/wa/export
         :try-wasm-with-cl/wa/import
-        :try-wasm-with-cl/wa/module)
+        :try-wasm-with-cl/wa/module
+        :try-wasm-with-cl/wa/reserved-word)
   (:export :defmacro.wat
            :defun.wat
            :defexport.wat
            :defimport.wat
-           :generate-wat-module))
+           :generate-wat-module
+
+           :local))
