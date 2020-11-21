@@ -4,6 +4,7 @@
    :macroexpand-1.wat
    :macroexpand.wat)
   (:import-from :alexandria
+                :symbolicate
                 :with-gensyms)
   (:import-from :try-wasm-with-cl/wa/environment
                 :wsymbol-macro-function
@@ -21,8 +22,8 @@
                     (declare (ignorable ,env))
                     (destructuring-bind ,lambda-list (cdr ,params)
                       ,@body)))
-            ;; NOTE: Also define as CL macro to mainly try expanding in editor.
-            (defmacro ,name ,lambda-list ,@body))))
+            ;; NOTE: Also define with %-suffix as CL macro to mainly try expanding in editor.
+            (defmacro ,(symbolicate name "%") ,lambda-list ,@body))))
 
 (defun macro-function-if-expandable (form env)
   (when (atom form)

@@ -14,6 +14,12 @@
            :|result|
            :result-keyword-p
 
+           :|if|
+           :|then|
+           :then
+           :|else|
+           :else
+
            :|i32|
            :i32-keyword-p
 
@@ -24,7 +30,8 @@
 
 (defmacro defrw (sym)
   (let ((lower-sym (intern (string-downcase (symbol-name sym)))))
-    `(progn (defvar ,lower-sym nil)
+    `(progn (defvar ,sym nil)
+            (defvar ,lower-sym nil)
             (defun ,(symbolicate sym "-KEYWORD-P") (sym)
               (string= (symbol-name sym)
                        ,(symbol-name sym))))))
@@ -37,8 +44,14 @@
 (defrw param)
 (defrw result)
 
+(defrw if)
+(defrw then)
+(defrw else)
+
+;; - type - ;;
+
 (defrw i32)
 
-;; --- special form --- ;;
+;; - special form - ;;
 
-(defvar local nil)
+(defrw local)
