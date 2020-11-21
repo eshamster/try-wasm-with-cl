@@ -2,9 +2,13 @@
   (:use :cl)
   (:export :parse-body)
   (:import-from :try-wasm-with-cl/wa/environment
+                :wsymbol-var
+                :*global-wat-env*
                 :intern.wat
+                :clone-wenvironment
                 :wenv-function-symbols
                 :wenv-import-symbols
+                :wenv-var-symbols
                 :wsymbol-macro-function)
   (:import-from :try-wasm-with-cl/wa/defmacro
                 :macroexpand.wat)
@@ -16,25 +20,26 @@
                 :parse-arg-name))
 (in-package :try-wasm-with-cl/wa/body-parser)
 
-;; --- vars --- ;;
+;; --- local environment --- ;;
 
-(defstruct vars
-  (lst (list)))
+(defvar *org-global-wat-env* nil)
 
-(defun push-var (var vars)
-  (push var (vars-lst vars)))
-
-(defun find-var-in (var vars)
-  (find var (vars-lst vars)))
+(defun var-p (sym)
+  (some (lambda (syms)
+          (find sym syms))
+        (list (wenv-var-symbols)
+              (wenv-function-symbols)
+              (wenv-import-symbols))))
 
 ;; --- parser --- ;;
 
 (defun parse-body (body args)
-  (let* ((vars (append args
-                       (wenv-function-symbols)
-                       (wenv-import-symbols))))
+  (let ((*org-global-wat-env* *global-wat-env*)
+        (*global-wat-env* (clone-wenvironment)))
+    (dolist (arg args)
+      (setf (wsymbol-var (intern.wat arg)) t))
     (flatten-progn-all
-     (parse-form body (make-vars :lst vars)))))
+     (parse-form body))))
 
 (defun flatten-progn-all (body)
   ;; Ex. ((progn 1 2) 3 (progn 4 (progn 5))) -> (1 2 3 4 5)
@@ -51,32 +56,32 @@
                               rest)))))
     (rec body)))
 
-(defun parse-form (form vars)
+(defun parse-form (form)
   (cond ((atom form)
-         (parse-atom form vars))
+         (parse-atom form))
         ((special-form-p form)
-         (parse-special-form form vars))
+         (parse-special-form form))
         ((macro-form-p form)
-         (parse-macro-form form vars))
+         (parse-macro-form form))
         (t (mapcar (lambda (unit)
-                     (parse-form unit vars))
+                     (parse-form unit))
                    form))))
 
-(defun parse-atom (atom vars)
-  (if (find-var-in atom vars)
+(defun parse-atom (atom)
+  (if (var-p atom)
       (parse-arg-name atom)
       atom))
 
 ;; - special form - ;;
 
-(defun parse-special-form (form vars)
+(defun parse-special-form (form)
   (ecase (car form)
     (progn `(progn ,@(mapcar (lambda (unit)
-                               (parse-form unit vars))
+                               (parse-form unit))
                              (cdr form))))
     (local (destructuring-bind (var type) (cdr form)
-             (push-var var vars)
-             `(|local| ,(parse-atom var vars)
+             (setf (wsymbol-var (intern.wat var)) t)
+             `(|local| ,(parse-atom var)
                        ,(convert-type type))))))
 
 (defun special-form-p (form)
@@ -87,9 +92,9 @@
 
 ;; - macro - ;;
 
-(defun parse-macro-form (form vars)
+(defun parse-macro-form (form)
   ;; TODO: consider environment
-  (parse-form (macroexpand.wat form) vars))
+  (parse-form (macroexpand.wat form *org-global-wat-env*)))
 
 (defun macro-form-p (form)
   (wsymbol-macro-function (intern.wat (car form))))

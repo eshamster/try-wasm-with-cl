@@ -3,13 +3,16 @@
   (:export :wsymbol-function
            :wsymbol-macro-function
            :wsymbol-import
+           :wsymbol-var
            :*global-wat-env*
            :intern.wat
+           :clone-wenvironment
            :wenv-function-symbols
            :wenv-macro-function-symbols
            :wenv-import-symbols
            :wenv-function-body-generators
-           :wenv-import-body-generators)
+           :wenv-import-body-generators
+           :wenv-var-symbols)
   (:import-from :alexandria
                 :hash-table-values))
 (in-package :try-wasm-with-cl/wa/environment)
@@ -20,7 +23,8 @@
   symbol
   import
   function
-  macro-function)
+  macro-function
+  var)
 
 (defun set-function-empty (wsymbol)
   (when (wat-symbol-function wsymbol)
@@ -40,6 +44,12 @@
           (wat-symbol-symbol wsymbol)))
   (setf (wat-symbol-import wsymbol) nil))
 
+(defun set-var-empty (wsymbol)
+  (when (wat-symbol-var wsymbol)
+    (warn "~A has been defined as WAT var"
+          (wat-symbol-symbol wsymbol)))
+  (setf (wat-symbol-var wsymbol) nil))
+
 (defun wsymbol-function (wsymbol)
   (wat-symbol-function wsymbol))
 
@@ -47,6 +57,7 @@
   `(progn (setf (wat-symbol-function ,wsymbol) ,func)
           (set-macro-function-empty ,wsymbol)
           (set-import-empty ,wsymbol)
+          (set-var-empty ,wsymbol)
           ,wsymbol))
 
 (defun wsymbol-macro-function (wsymbol)
@@ -56,6 +67,7 @@
   `(progn (set-function-empty ,wsymbol)
           (setf (wat-symbol-macro-function ,wsymbol) ,macro-func)
           (set-import-empty ,wsymbol)
+          (set-var-empty ,wsymbol)
           ,wsymbol))
 
 (defun wsymbol-import (wsymbol)
@@ -65,12 +77,29 @@
   `(progn (set-function-empty ,wsymbol)
           (set-macro-function-empty ,wsymbol)
           (setf (wat-symbol-import ,wsymbol) ,import)
+          (set-var-empty ,wsymbol)
+          ,wsymbol))
+
+(defsetf wsymbol-var (wsymbol) (var)
+  `(progn (set-function-empty ,wsymbol)
+          (set-macro-function-empty ,wsymbol)
+          (set-import-empty ,wsymbol)
+          (set-var-empty ,wsymbol)
+          (setf (wat-symbol-var ,wsymbol) ,var)
           ,wsymbol))
 
 ;; --- wat-environment --- ;;
 
 (defstruct wat-environment
   (symbol-to-wat-symbols (make-hash-table)))
+
+(defun clone-wenvironment (&optional (wenv *global-wat-env*))
+  (let ((result (make-wat-environment)))
+    (maphash (lambda (sym wsym)
+               (setf (gethash sym (wat-environment-symbol-to-wat-symbols result))
+                     (copy-wat-symbol wsym)))
+             (wat-environment-symbol-to-wat-symbols wenv))
+    result))
 
 (defvar *global-wat-env* (make-wat-environment))
 
@@ -103,6 +132,9 @@
 
 (defun wenv-import-symbols (&optional (wenv *global-wat-env*))
   (wenv-specified-symbols wenv #'wat-symbol-import))
+
+(defun wenv-var-symbols (&optional (wenv *global-wat-env*))
+  (wenv-specified-symbols wenv #'wat-symbol-var))
 
 ;; - body getter - ;;
 
