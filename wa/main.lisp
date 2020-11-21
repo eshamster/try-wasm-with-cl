@@ -4,7 +4,8 @@
         :try-wasm-with-cl/wa/export
         :try-wasm-with-cl/wa/import
         :try-wasm-with-cl/wa/module
-        :try-wasm-with-cl/wa/reserved-word)
+        :try-wasm-with-cl/wa/reserved-word
+        :try-wasm-with-cl/wa/default-macro)
   (:export :defmacro.wat
            :defun.wat
            :defexport.wat
