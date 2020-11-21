@@ -20,6 +20,13 @@
            :|else|
            :else
 
+           :|block|
+           :block
+           :|loop|
+           :loop
+           :|br_if|
+           :|br|
+
            :|i32|
            :i32-keyword-p
 
@@ -47,6 +54,11 @@
 (defrw if)
 (defrw then)
 (defrw else)
+
+(defrw block)
+(defrw loop)
+(defrw br_if)
+(defrw br)
 
 ;; - type - ;;
 

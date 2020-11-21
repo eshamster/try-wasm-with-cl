@@ -11,4 +11,6 @@
            :defimport.wat
            :generate-wat-module
 
-           :local))
+           :local
+           :block
+           :loop))

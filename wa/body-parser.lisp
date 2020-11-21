@@ -13,7 +13,12 @@
   (:import-from :try-wasm-with-cl/wa/defmacro
                 :macroexpand.wat)
   (:import-from :try-wasm-with-cl/wa/reserved-word
-                :local)
+                :|local|
+                :local
+                :|block|
+                :block
+                :|loop|
+                :loop)
   (:import-from :try-wasm-with-cl/wa/type
                 :convert-type)
   (:import-from :try-wasm-with-cl/wa/utils
@@ -82,11 +87,19 @@
     (local (destructuring-bind (var type) (cdr form)
              (setf (wsymbol-var (intern.wat var)) t)
              `(|local| ,(parse-atom var)
-                       ,(convert-type type))))))
+                       ,(convert-type type))))
+    (block (destructuring-bind (var &rest rest-form) (cdr form)
+             (setf (wsymbol-var (intern.wat var)) t)
+             `(|block| ,(parse-atom var)
+                       ,@(parse-form rest-form))))
+    (loop (destructuring-bind (var &rest rest-form) (cdr form)
+             (setf (wsymbol-var (intern.wat var)) t)
+             `(|loop| ,(parse-atom var)
+                      ,@(parse-form rest-form))))))
 
 (defun special-form-p (form)
   (case (car form)
-    ((progn local)
+    ((progn local block loop)
      t)
     (t nil)))
 
