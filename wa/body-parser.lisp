@@ -68,6 +68,8 @@
          (parse-special-form form))
         ((macro-form-p form)
          (parse-macro-form form))
+        ((function-call-form-p form)
+         (parse-function-call-form form))
         (t (mapcar (lambda (unit)
                      (parse-form unit))
                    form))))
@@ -102,6 +104,24 @@
     ((progn local block loop)
      t)
     (t nil)))
+
+;; - function call form - ;;
+
+;; TODO: Parse built-in functions
+
+(defun parse-function-call-form (form)
+  (destructuring-bind (func &rest args) form
+    `(progn ,@(mapcar (lambda (arg)
+                        (parse-form arg))
+                      (reverse args))
+            |call| ,(parse-atom func))))
+
+(defun function-call-form-p (form)
+  (let ((sym (car form)))
+    (some (lambda (syms)
+            (find sym syms))
+          (list (wenv-function-symbols)
+                (wenv-import-symbols)))))
 
 ;; - macro - ;;
 

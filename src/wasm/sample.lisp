@@ -28,10 +28,8 @@
 
 (defun.wat test-if ((x i32)) ()
   (if (|i32.eqz| (|get_local| x))
-      (progn |i32.const| 10
-             |call| log)
-      (progn |i32.const| 20
-             |call| log)))
+      (log (|i32.const| 10))
+      (log (|i32.const| 20))))
 
 (defmacro.wat incf-i32 (place &optional (added '(|i32.const| 1)))
   `(progn |get_local| ,place
@@ -79,19 +77,14 @@
     (for f (:init (|set_local| i (|i32.const| 1))
             :break (|i32.ge_u| (|get_local| i) (|get_local| max))
             :mod (incf-i32 i))
-      |get_local| i
-      |call| log)))
+         (log (|get_local| i)))))
 
 (defun.wat test-print () ()
-  |i32.const| 300
-  |call| sample
-  |call| log
+  (log (sample (|i32.const| 300)))
   ;; test-if
-  |i32.const| 0
-  |call| test-if
-  |i32.const| 1
-  |call| test-if
+  (test-if (|i32.const| 0))
+  (test-if (|i32.const| 1))
   ;; test-for
-  |call| test-for)
+  (test-for))
 
 (defexport.wat exported-func (func test-print))
