@@ -6,12 +6,7 @@
                 #:defimport.wat
                 #:defexport.wat
 
-                #:local
-                #:block
-                #:loop
-
-                #:br
-                #:br-if
+                #:for
 
                 #:i32.const
                 #:i32.add
@@ -24,28 +19,6 @@
 (in-package :try-wasm-with-cl/src/wasm/sample)
 
 (defimport.wat log console.log (func ((i32))))
-
-(defmacro.wat let (var-forms &body body)
-  ;; Ex. (let (((i i32) (i32.const 0))
-  ;;           (j i32))
-  ;;       ...)
-  ;; Can use this only at head of function
-  `(progn ,@(mapcar (lambda (var-form)
-                      (let ((var-type (if (listp (car var-form))
-                                          (car var-form)
-                                          var-form)))
-                        (destructuring-bind (var type) var-type
-                          `(local ,var ,type))))
-                    var-forms)
-          ,(mapcan (lambda (var-form)
-                     (when (listp (car var-form))
-                       (let ((var-type (car var-form))
-                             (init (cadr var-form)))
-                         (destructuring-bind (var type) var-type
-                           (declare (ignore type))
-                           `(set-local ,var ,init)))))
-                   var-forms)
-          ,@body))
 
 (defun.wat sample ((x i32)) (i32)
   (let (((tmp i32) (i32.const 100)))
@@ -61,18 +34,6 @@
           ,added
           (i32.add)
           (set-local ,place)))
-
-(defmacro.wat for (for-name params &body body)
-  (let ((block-name (symbolicate for-name "-BLOCK"))
-        (loop-name  (symbolicate for-name "-LOOP")))
-    (destructuring-bind (&key init break mod) params
-      `(progn ,init
-              (block ,block-name
-                (loop ,loop-name
-                       (br-if ,block-name ,break)
-                      ,@body
-                      ,mod
-                      (br ,loop-name)))))))
 
 (defun.wat test-for () ()
   (let ((i i32)

@@ -17,6 +17,9 @@
            #:block
            #:loop
 
+           ;; default macros
+           #:for
+
            ;; built-in functions
            #:i32.add
            #:i32.const

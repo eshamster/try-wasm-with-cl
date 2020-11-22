@@ -1,13 +1,23 @@
 (defpackage :try-wasm-with-cl/wa/default-macro
-  (:use :cl)
-  (:import-from :try-wasm-with-cl/wa/defmacro
-                :defmacro.wat)
-  (:import-from :try-wasm-with-cl/wa/reserved-word
-                :|if|
-                :|then|
-                :then
-                :|else|
-                :else))
+  (:use #:cl)
+  (:export #:for)
+  (:import-from #:try-wasm-with-cl/wa/built-in-func
+                #:set-local
+                #:br
+                #:br-if)
+  (:import-from #:try-wasm-with-cl/wa/defmacro
+                #:defmacro.wat)
+  (:import-from #:try-wasm-with-cl/wa/reserved-word
+                #:|if|
+                #:|then|
+                #:then
+                #:|else|
+                #:else
+                #:local
+                #:block
+                #:loop)
+  (:import-from #:alexandria
+                #:symbolicate))
 (in-package :try-wasm-with-cl/wa/default-macro)
 
 (defmacro.wat if (test-form then-form &optional else-form)
@@ -20,3 +30,39 @@
 (defmacro.wat when (test-form &body form)
   `(if ,test-form
        (progn ,@form)))
+
+(defmacro.wat let (var-forms &body body)
+  ;; Ex. (let (((i i32) (i32.const 0))
+  ;;           (j i32))
+  ;;       ...)
+  ;; Limitations:
+  ;; - Can use this only at head of function.
+  ;; - A variable is not hidden to others.
+  ;; - The scope is same to "local" operator.
+  `(progn ,@(mapcar (lambda (var-form)
+                      (let ((var-type (if (listp (car var-form))
+                                          (car var-form)
+                                          var-form)))
+                        (destructuring-bind (var type) var-type
+                          `(local ,var ,type))))
+                    var-forms)
+          ,(mapcan (lambda (var-form)
+                     (when (listp (car var-form))
+                       (let ((var-type (car var-form))
+                             (init (cadr var-form)))
+                         (destructuring-bind (var type) var-type
+                           (declare (ignore type))
+                           `(set-local ,var ,init)))))
+                   var-forms)
+          ,@body))
+
+(defmacro.wat for (for-name (&key init break mod) &body body)
+  (let ((block-name (symbolicate for-name "-BLOCK"))
+        (loop-name  (symbolicate for-name "-LOOP")))
+    `(progn ,init
+            (block ,block-name
+              (loop ,loop-name
+                     (br-if ,block-name ,break)
+                    ,@body
+                    ,mod
+                     (br ,loop-name))))))
