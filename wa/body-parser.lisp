@@ -1,28 +1,31 @@
 (defpackage :try-wasm-with-cl/wa/body-parser
-  (:use :cl)
-  (:export :parse-body)
-  (:import-from :try-wasm-with-cl/wa/environment
-                :wsymbol-var
-                :*global-wat-env*
-                :intern.wat
-                :clone-wenvironment
-                :wenv-function-symbols
-                :wenv-import-symbols
-                :wenv-var-symbols
-                :wsymbol-macro-function)
-  (:import-from :try-wasm-with-cl/wa/defmacro
-                :macroexpand.wat)
-  (:import-from :try-wasm-with-cl/wa/reserved-word
-                :|local|
-                :local
-                :|block|
-                :block
-                :|loop|
-                :loop)
-  (:import-from :try-wasm-with-cl/wa/type
-                :convert-type)
-  (:import-from :try-wasm-with-cl/wa/utils
-                :parse-arg-name))
+  (:use #:cl)
+  (:export #:parse-body)
+  (:import-from #:try-wasm-with-cl/wa/built-in-func
+                #:built-in-func-p
+                #:convert-built-in-func)
+  (:import-from #:try-wasm-with-cl/wa/defmacro
+                #:macroexpand.wat)
+  (:import-from #:try-wasm-with-cl/wa/environment
+                #:wsymbol-var
+                #:*global-wat-env*
+                #:intern.wat
+                #:clone-wenvironment
+                #:wenv-function-symbols
+                #:wenv-import-symbols
+                #:wenv-var-symbols
+                #:wsymbol-macro-function)
+  (:import-from #:try-wasm-with-cl/wa/reserved-word
+                #:|local|
+                #:local
+                #:|block|
+                #:block
+                #:|loop|
+                #:loop)
+  (:import-from #:try-wasm-with-cl/wa/type
+                #:convert-type)
+  (:import-from #:try-wasm-with-cl/wa/utils
+                #:parse-arg-name))
 (in-package :try-wasm-with-cl/wa/body-parser)
 
 ;; --- local environment --- ;;
@@ -66,6 +69,8 @@
          (parse-atom form))
         ((special-form-p form)
          (parse-special-form form))
+        ((built-in-func-form-p form)
+         (parse-built-in-func-form form))
         ((macro-form-p form)
          (parse-macro-form form))
         ((function-call-form-p form)
@@ -104,6 +109,17 @@
     ((progn local block loop)
      t)
     (t nil)))
+
+;; - built-in function form - ;;
+
+(defun parse-built-in-func-form (form)
+  `(,(convert-built-in-func (car form))
+    ,@(mapcar (lambda (elem)
+                (parse-form elem))
+              (cdr form))))
+
+(defun built-in-func-form-p (form)
+  (built-in-func-p (car form)))
 
 ;; - function call form - ;;
 
