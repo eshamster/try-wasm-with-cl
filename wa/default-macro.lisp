@@ -1,10 +1,13 @@
 (defpackage :try-wasm-with-cl/wa/default-macro
   (:use #:cl)
-  (:export #:for)
+  (:export #:for
+           #:i32+)
   (:import-from #:try-wasm-with-cl/wa/built-in-func
                 #:set-local
                 #:br
-                #:br-if)
+                #:br-if
+                #:i32.const
+                #:i32.add)
   (:import-from #:try-wasm-with-cl/wa/defmacro
                 #:defmacro.wat)
   (:import-from #:try-wasm-with-cl/wa/reserved-word
@@ -19,6 +22,8 @@
   (:import-from #:alexandria
                 #:symbolicate))
 (in-package :try-wasm-with-cl/wa/default-macro)
+
+;; --- control macros --- ;;
 
 (defmacro.wat if (test-form then-form &optional else-form)
   `(|if| ,test-form
@@ -84,3 +89,24 @@
                     ,@body
                     ,mod
                      (br ,loop-name))))))
+
+;; --- calculation macros --- ;;
+
+(defmacro def-calculation-macro (name const op)
+  `(defmacro.wat ,name (&rest numbers)
+     (flet ((parse-number (number)
+              (if (numberp number)
+                  `(,',const ,number)
+                  number)))
+       (case (length numbers)
+         (0 `(,',const 0))
+         (t (labels ((rec (rest-numbers)
+                       (let ((head (car rest-numbers))
+                             (rest (cdr rest-numbers)))
+                         (if rest
+                             `(,',op ,(parse-number head)
+                                     ,(rec rest))
+                             (parse-number head)))))
+              (rec numbers)))))))
+
+(def-calculation-macro i32+ i32.const i32.add)

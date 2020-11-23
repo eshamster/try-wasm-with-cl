@@ -7,6 +7,7 @@
                 #:defexport.wat
 
                 #:for
+                #:i32+
 
                 #:i32.const
                 #:i32.add
@@ -53,16 +54,20 @@
             :mod (incf-i32 i))
          (log (get-local i)))))
 
+(defun.wat test-plus ((x i32)) ()
+  (log (i32+))
+  (log (i32+ (get-local x)))
+  (log (i32+ (get-local x) 1))
+  (log (i32+ (get-local x) 1 2)))
+
 (defun.wat test-print () ()
   (log (sample (i32.const 300)))
-  ;; test-if
   (test-if (i32.const 0))
   (test-if (i32.const 1))
-  ;; test-cond
   (test-cond (i32.const 1))
   (test-cond (i32.const 2))
   (test-cond (i32.const 3))
-  ;; test-for
-  (test-for))
+  (test-for)
+  (test-plus (i32.const 100)))
 
 (defexport.wat exported-func (func test-print))

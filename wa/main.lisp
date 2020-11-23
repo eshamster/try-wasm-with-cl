@@ -19,6 +19,7 @@
 
            ;; default macros
            #:for
+           #:i32+
 
            ;; built-in functions
            #:i32.add
