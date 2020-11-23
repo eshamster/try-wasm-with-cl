@@ -5,6 +5,7 @@
 
            #:i32.add
            #:i32.const
+           #:i32.eq
            #:i32.eqz
            #:i32.ge-u
 
@@ -38,6 +39,7 @@
 
 (def-built-in-func i32.add)
 (def-built-in-func i32.const)
+(def-built-in-func i32.eq)
 (def-built-in-func i32.eqz)
 (def-built-in-func i32.ge-u)
 

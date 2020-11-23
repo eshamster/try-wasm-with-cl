@@ -10,6 +10,7 @@
 
                 #:i32.const
                 #:i32.add
+                #:i32.eq
                 #:i32.eqz
                 #:i32.ge-u
                 #:get-local
@@ -28,6 +29,15 @@
   (if (i32.eqz (get-local x))
       (log (i32.const 10))
       (log (i32.const 20))))
+
+(defun.wat test-cond ((x i32)) ()
+  (cond ((i32.eq (get-local x)
+                 (i32.const 1))
+         (log (i32.const 111)))
+        ((i32.eq (get-local x)
+                 (i32.const 2))
+         (log (i32.const 222)))
+        (t (log (i32.const 999)))))
 
 (defmacro.wat incf-i32 (place &optional (added '(i32.const 1)))
   `(progn (get-local ,place)
@@ -48,6 +58,10 @@
   ;; test-if
   (test-if (i32.const 0))
   (test-if (i32.const 1))
+  ;; test-cond
+  (test-cond (i32.const 1))
+  (test-cond (i32.const 2))
+  (test-cond (i32.const 3))
   ;; test-for
   (test-for))
 

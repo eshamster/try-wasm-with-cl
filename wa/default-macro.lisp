@@ -31,6 +31,24 @@
   `(if ,test-form
        (progn ,@form)))
 
+(defmacro.wat cond (&rest clauses)
+  (labels ((rec (rest-clauses)
+             (unless rest-clauses
+               (return-from rec))
+             (let* ((clause (car rest-clauses))
+                    (test-form (car clause))
+                    (form (cdr clause)))
+               (cond ((eq test-form 't)
+                      `(progn ,@form))
+                     ((cdr rest-clauses)
+                      `(if ,test-form
+                           (progn ,@form)
+                           ,(rec (cdr rest-clauses))))
+                     (t
+                      `(if ,test-form
+                           (progn ,@form)))))))
+    (rec clauses)))
+
 (defmacro.wat let (var-forms &body body)
   ;; Ex. (let (((i i32) (i32.const 0))
   ;;           (j i32))

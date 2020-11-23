@@ -23,6 +23,7 @@
            ;; built-in functions
            #:i32.add
            #:i32.const
+           #:i32.eq
            #:i32.eqz
            #:i32.ge-u
 
