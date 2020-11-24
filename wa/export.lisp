@@ -1,16 +1,16 @@
 (defpackage :try-wasm-with-cl/wa/export
-  (:use :cl)
-  (:export :defexport.wat
-           :get-export-body-generators)
-  (:import-from :try-wasm-with-cl/wa/reserved-word
-                :|export|
-                :|func|
-                :func-keyword-p)
-  (:import-from :try-wasm-with-cl/wa/utils
-                :parse-arg-name
-                :symbol-to-string)
-  (:import-from :alexandria
-                :hash-table-values))
+  (:use #:cl)
+  (:export #:defexport.wat
+           #:get-export-body-generators)
+  (:import-from #:try-wasm-with-cl/wa/reserved-word
+                #:|export|
+                #:|func|
+                #:func)
+  (:import-from #:try-wasm-with-cl/wa/utils
+                #:parse-arg-name
+                #:symbol-to-string)
+  (:import-from #:alexandria
+                #:hash-table-values))
 (in-package :try-wasm-with-cl/wa/export)
 
 ;; https://webassembly.github.io/spec/core/text/modules.html#exports
@@ -35,9 +35,8 @@
 (defun parse-export-desc (export-desc)
   (let ((type  (car  export-desc))
         (param (cadr export-desc)))
-    (cond ((func-keyword-p type)
-           (parse-export-func-desc param))
-          (t (error "not recognized export type: ~A" type)))))
+    (ecase type
+      (func (parse-export-func-desc param)))))
 
 (defun parse-export-func-desc (param)
   `(|func| ,(parse-arg-name param)))

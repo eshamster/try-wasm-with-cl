@@ -13,6 +13,8 @@
            #:defimport.wat
            #:generate-wat-module
 
+           #:func
+           #:memory
            #:local
            #:block
            #:loop
@@ -27,6 +29,8 @@
            #:i32.eq
            #:i32.eqz
            #:i32.ge-u
+           #:i32.store
+           #:i32.load
 
            #:get-local
            #:set-local

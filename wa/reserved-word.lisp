@@ -1,51 +1,45 @@
 (defpackage :try-wasm-with-cl/wa/reserved-word
-  (:use :cl)
-  (:export :|module|
-           :module-keyword-p
+  (:use #:cl)
+  (:export #:|module|
 
-           :|import|
-           :import-keyword-p
-           :|export|
-           :export-keyword-p
-           :|func|
-           :func-keyword-p
-           :|param|
-           :param-keyword-p
-           :|result|
-           :result-keyword-p
+           #:|import|
+           #:|export|
+           #:|func|
+           #:func
+           #:|memory|
+           #:memory
+           #:|param|
+           #:|result|
 
-           :|if|
-           :|then|
-           :then
-           :|else|
-           :else
+           #:|if|
+           #:|then|
+           #:then
+           #:|else|
+           #:else
 
-           :|block|
-           :block
-           :|loop|
-           :loop
+           #:|block|
+           #:block
+           #:|loop|
+           #:loop
 
-           :|i32|
-           :i32-keyword-p
+           #:|i32|
 
-           :local)
-  (:import-from :alexandria
-                :symbolicate))
+           #:local)
+  (:import-from #:alexandria
+                #:symbolicate))
 (in-package :try-wasm-with-cl/wa/reserved-word)
 
 (defmacro defrw (sym)
   (let ((lower-sym (intern (string-downcase (symbol-name sym)))))
     `(progn (defvar ,sym nil)
-            (defvar ,lower-sym nil)
-            (defun ,(symbolicate sym "-KEYWORD-P") (sym)
-              (string= (symbol-name sym)
-                       ,(symbol-name sym))))))
+            (defvar ,lower-sym nil))))
 
 (defrw module)
 
 (defrw import)
 (defrw export)
 (defrw func)
+(defrw memory)
 (defrw param)
 (defrw result)
 

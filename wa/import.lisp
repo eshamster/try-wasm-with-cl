@@ -1,19 +1,21 @@
 (defpackage :try-wasm-with-cl/wa/import
-  (:use :cl)
-  (:export :defimport.wat)
-  (:import-from :try-wasm-with-cl/wa/environment
-                :wsymbol-import
-                :intern.wat)
-  (:import-from :try-wasm-with-cl/wa/reserved-word
-                :|import|
-                :|func|
-                :func-keyword-p)
-  (:import-from :try-wasm-with-cl/wa/type
-                :parse-typeuse)
-  (:import-from :try-wasm-with-cl/wa/utils
-                :parse-arg-name)
-  (:import-from :cl-ppcre
-                :split))
+  (:use #:cl)
+  (:export #:defimport.wat)
+  (:import-from #:try-wasm-with-cl/wa/environment
+                #:wsymbol-import
+                #:intern.wat)
+  (:import-from #:try-wasm-with-cl/wa/reserved-word
+                #:|import|
+                #:|func|
+                #:func
+                #:|memory|
+                #:memory)
+  (:import-from #:try-wasm-with-cl/wa/type
+                #:parse-typeuse)
+  (:import-from #:try-wasm-with-cl/wa/utils
+                #:parse-arg-name)
+  (:import-from #:cl-ppcre
+                #:split))
 (in-package :try-wasm-with-cl/wa/import)
 
 ;; https://webassembly.github.io/spec/core/text/modules.html#imports
@@ -40,15 +42,21 @@
     splitted))
 
 (defun parse-import-desc (name import-desc)
-  ;; TODO: should process 'table', 'memory', 'global'
+  ;; TODO: should process 'table', 'global'
   (let ((keyword (car import-desc))
         (params (cdr import-desc)))
-    (cond ((func-keyword-p keyword)
-           (parse-import-func-desc name params))
-          (t (error "not recognized keyword: ~A" keyword)))))
+    (ecase keyword
+      (func (parse-import-func-desc name params))
+      (memory (parse-import-memory-desc name params)))))
 
 (defun parse-import-func-desc (name params)
   ;; Ex. name: foo, params: (((a i32) (b i32)) (i32))
   ;;     -> (func $foo (param $a i32) (param $b i32) (result $i32))
   `(|func| ,(parse-arg-name name)
            ,@(parse-typeuse params)))
+
+(defun parse-import-memory-desc (name params)
+  ;; Ex. name: foo, params: (1)
+  ;;     -> (memory $foo 1)
+  `(|memory| ,(parse-arg-name name)
+             ,(car params)))

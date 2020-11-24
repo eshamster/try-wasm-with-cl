@@ -8,6 +8,8 @@
            #:i32.eq
            #:i32.eqz
            #:i32.ge-u
+           #:i32.store
+           #:i32.load
 
            #:get-local
            #:set-local
@@ -42,6 +44,8 @@
 (def-built-in-func i32.eq)
 (def-built-in-func i32.eqz)
 (def-built-in-func i32.ge-u)
+(def-built-in-func i32.store)
+(def-built-in-func i32.load)
 
 (def-built-in-func get-local)
 (def-built-in-func set-local)
