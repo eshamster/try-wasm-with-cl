@@ -5,9 +5,11 @@
                 #:defun.wat
                 #:defimport.wat
                 #:defexport.wat
+                #:defglobal.wat
 
                 #:func
                 #:memory
+                #:mut
 
                 #:for
                 #:i32+
@@ -20,13 +22,17 @@
                 #:i32.store
                 #:i32.load
                 #:get-local
-                #:set-local)
+                #:set-local
+                #:get-global
+                #:set-global)
   (:import-from #:alexandria
                 #:symbolicate))
 (in-package :try-wasm-with-cl/src/wasm/sample)
 
 (defimport.wat log console.log (func ((i32))))
 (defimport.wat mem js.mem (memory 1))
+
+(defglobal.wat g js.global (mut i32))
 
 (defun.wat sample ((x i32)) (i32)
   (let (((tmp i32) (i32.const 100)))
@@ -71,6 +77,10 @@
              (i32.const 111))
   (log (i32.load (i32.const 5))))
 
+(defun.wat test-global () ()
+  (set-global g (i32.const 99))
+  (log (get-global g)))
+
 (defun.wat test-print () ()
   (log (sample (i32.const 300)))
   (test-if (i32.const 0))
@@ -80,6 +90,7 @@
   (test-cond (i32.const 3))
   (test-for)
   (test-plus (i32.const 100))
-  (test-memory))
+  (test-memory)
+  (test-global))
 
 (defexport.wat exported-func (func test-print))

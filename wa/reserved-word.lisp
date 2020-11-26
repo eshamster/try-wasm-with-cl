@@ -8,6 +8,10 @@
            #:func
            #:|memory|
            #:memory
+           #:|global|
+           #:global
+           #:|mut|
+           #:mut
            #:|param|
            #:|result|
 
@@ -40,6 +44,8 @@
 (defrw export)
 (defrw func)
 (defrw memory)
+(defrw global)
+(defrw mut)
 (defrw param)
 (defrw result)
 

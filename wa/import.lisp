@@ -13,7 +13,8 @@
   (:import-from #:try-wasm-with-cl/wa/type
                 #:parse-typeuse)
   (:import-from #:try-wasm-with-cl/wa/utils
-                #:parse-arg-name)
+                #:parse-arg-name
+                #:parse-mod-nm)
   (:import-from #:cl-ppcre
                 #:split))
 (in-package :try-wasm-with-cl/wa/import)
@@ -33,16 +34,8 @@
     ,@(parse-mod-nm mod-nm)
     ,(parse-import-desc name parsed-import-desc)))
 
-(defun parse-mod-nm (mod-nm)
-  (let* ((*print-case* :downcase)
-         (mod-nm-str (format nil "~A" mod-nm))
-         (splitted (split "\\." mod-nm-str)))
-    (unless (= (length splitted) 2)
-      (error "mod-nm should be \"xxx.yyy\" but got ~A" mod-nm))
-    splitted))
-
 (defun parse-import-desc (name import-desc)
-  ;; TODO: should process 'table', 'global'
+  ;; TODO: should process 'table'
   (let ((keyword (car import-desc))
         (params (cdr import-desc)))
     (ecase keyword

@@ -13,6 +13,8 @@
 
            #:get-local
            #:set-local
+           #:get-global
+           #:set-global
 
            #:br
            #:br-if)
@@ -34,10 +36,12 @@
     (intern (string-downcase
              (regex-replace-all "-" (symbol-name sym) "_")))))
 
-(defmacro def-built-in-func (sym)
+(defmacro def-built-in-func (sym &optional sym-for-print)
   `(progn (defvar ,sym nil)
           (setf (gethash ',sym *built-in-funcs*)
-                ',(sym-to-sym-for-print sym))))
+                ',(if sym-for-print
+                      sym-for-print
+                      (sym-to-sym-for-print sym)))))
 
 (def-built-in-func i32.add)
 (def-built-in-func i32.const)
@@ -49,6 +53,9 @@
 
 (def-built-in-func get-local)
 (def-built-in-func set-local)
+
+(def-built-in-func get-global |global.get|)
+(def-built-in-func set-global |global.set|)
 
 (def-built-in-func br)
 (def-built-in-func br-if)

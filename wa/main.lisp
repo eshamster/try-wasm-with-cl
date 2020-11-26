@@ -1,5 +1,6 @@
 (defpackage :try-wasm-with-cl/wa/main
   (:use #:try-wasm-with-cl/wa/built-in-func
+        #:try-wasm-with-cl/wa/defglobal
         #:try-wasm-with-cl/wa/defmacro
         #:try-wasm-with-cl/wa/defun
         #:try-wasm-with-cl/wa/export
@@ -11,10 +12,12 @@
            #:defun.wat
            #:defexport.wat
            #:defimport.wat
+           #:defglobal.wat
            #:generate-wat-module
 
            #:func
            #:memory
+           #:mut
            #:local
            #:block
            #:loop
@@ -34,6 +37,8 @@
 
            #:get-local
            #:set-local
+           #:get-global
+           #:set-global
 
            #:br
            #:br-if))
