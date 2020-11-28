@@ -16,6 +16,8 @@
 
                 #:i32.const
                 #:i32.add
+                #:i32.sub
+                #:i32.mul
                 #:i32.eq
                 #:i32.eqz
                 #:i32.ge-u
@@ -81,6 +83,16 @@
   (set-global g (i32.const 99))
   (log (get-global g)))
 
+;; factorial
+(defun.wat test-rec ((x i32)) (i32)
+  (let ((result i32))
+    (if (i32.ge-u (i32.const 1) (get-local x))
+        (set-local result (i32.const 1))
+        (progn (i32.mul (get-local x)
+                        (test-rec (i32.sub (get-local x) (i32.const 1))))
+               (set-local result)))
+    (get-local result)))
+
 (defun.wat test-print () ()
   (log (sample (i32.const 300)))
   (test-if (i32.const 0))
@@ -91,6 +103,7 @@
   (test-for)
   (test-plus (i32.const 100))
   (test-memory)
-  (test-global))
+  (test-global)
+  (log (test-rec (i32.const 5))))
 
 (defexport.wat exported-func (func test-print))

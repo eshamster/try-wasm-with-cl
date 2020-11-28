@@ -69,13 +69,13 @@
                         (destructuring-bind (var type) var-type
                           `(local ,var ,type))))
                     var-forms)
-          ,(mapcan (lambda (var-form)
-                     (when (listp (car var-form))
-                       (let ((var-type (car var-form))
-                             (init (cadr var-form)))
+          ,@(mapcan (lambda (var-form)
+                      (when (listp (car var-form))
+                        (let ((var-type (car var-form))
+                              (init (cadr var-form)))
                          (destructuring-bind (var type) var-type
                            (declare (ignore type))
-                           `(set-local ,var ,init)))))
+                           `((set-local ,var ,init))))))
                    var-forms)
           ,@body))
 
