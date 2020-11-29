@@ -127,7 +127,7 @@
   (destructuring-bind (func &rest args) form
     `(progn ,@(mapcar (lambda (arg)
                         (parse-form arg))
-                      (reverse args))
+                      args)
             (|call| ,(parse-atom func)))))
 
 (defun function-call-form-p (form)
