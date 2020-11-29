@@ -13,11 +13,13 @@
 
                 #:for
                 #:i32+
+                #:i32-
 
                 #:i32.const
                 #:i32.add
                 #:i32.sub
                 #:i32.mul
+                #:i32.rem-u
                 #:i32.eq
                 #:i32.eqz
                 #:i32.ge-u
@@ -35,6 +37,121 @@
 (defimport.wat mem js.mem (memory 1))
 
 (defglobal.wat g js.global (mut i32))
+
+(defun.wat get-global-memory-head () (i32)
+  (i32.const 1))
+
+(defun.wat get-header-size () (i32)
+  (i32.const 1))
+
+(defun.wat init-memory () ()
+  (i32.store (get-global-memory-head)
+             (i32.const 2))
+  (i32.store (i32.const 2)
+             (i32.const 0)))
+
+(defun.wat get-empty-memory-size ((head i32)) (i32)
+  (i32.load (i32+ (get-local head) 1)))
+
+(defun.wat set-empty-memory-size ((head i32) (size i32)) ()
+  (i32.store (i32+ (get-local head) 1)
+             (get-local size)))
+
+(defun.wat get-header-of-pointer ((ptr i32)) (i32)
+  (i32.load (i32- (get-local ptr) 1)))
+
+(defun.wat get-next-head ((head i32)) (i32)
+  (i32.load (get-local head)))
+
+(defun.wat malloc-rec ((size i32) (pre-head i32) (head i32)) (i32)
+  (let (((next-head i32) (get-next-head (get-local head)))
+        (new-head i32)
+        (rest-size i32)
+        (result i32))
+    (cond
+      ;; --- Case of tail of memory.
+      ((i32.eq (get-local next-head) (i32.const 0))
+       ;; TODO: Extend memory if shortage
+       (set-local new-head
+                  (i32+ (get-local head)
+                        (get-local size)
+                        (get-header-size)))
+       (i32.store (get-local new-head)
+                  (i32.const 0))
+       (i32.store (get-local pre-head)
+                  (get-local new-head))
+       (i32.store (get-local head)
+                  (get-local size))
+       (set-local result (i32+ (get-local head)
+                               (get-header-size))))
+      ;; --- Case where empty size is enough.
+      ((i32.ge-u (get-empty-memory-size (get-local head))
+                 (get-local size))
+       (set-local rest-size (i32- (get-empty-memory-size (get-local head))
+                                  (get-local size)))
+       (if (i32.eqz (get-local rest-size))
+           (set-local new-head (get-local next-head))
+           (progn (set-local new-head (i32+ (get-local head)
+                                            (get-local size)
+                                            (get-header-size)))
+                  (i32.store (get-local new-head)
+                             (get-local next-head))
+                  ;; Assume that area to store size is remained.
+                  ;; (It should be ensured by alignement)
+                  (set-empty-memory-size (get-local new-head)
+                                         (i32- (get-local rest-size)
+                                               (get-header-size)))))
+       (i32.store (get-local pre-head)
+                  (get-local new-head))
+       (i32.store (get-local head)
+                  (get-local size))
+       (set-local result (i32+ (get-local head)
+                               (get-header-size))))
+      ;; --- Case where empty size is not enough.
+      (t (malloc-rec (get-local size)
+                     (get-local head)
+                     (get-local next-head))
+         (set-local result))))
+  (get-local result))
+
+(defun.wat adjust-malloc-size ((size i32) (header-size i32) (align-size i32)) (i32)
+  (let* (((required i32) (i32+ (get-local size)
+                               (get-local header-size)))
+         ((rem i32) (i32.rem-u (get-local required)
+                               (get-local align-size)))
+         (aligned i32))
+    (if (i32.eqz (get-local rem))
+        (set-local aligned (get-local required))
+        (set-local aligned (i32+ (get-local required)
+                                 (i32- (get-local align-size)
+                                       (get-local rem)))))
+    (i32- (get-local aligned) (get-local header-size))))
+
+;; Allocate memory and return offset of its head
+(defun.wat malloc ((size i32)) (i32)
+  (let (((actual-size i32) (adjust-malloc-size (get-local size)
+                                               (get-header-size)
+                                               (i32.const 2)))
+        ((global-head i32) (get-global-memory-head)))
+    (malloc-rec (get-local actual-size)
+                (get-local global-head)
+                (get-next-head (get-local global-head)))))
+
+(defun.wat free ((ptr i32)) ()
+  )
+
+(defun.wat test-mem-process () ()
+  ;; expect 16 - 2
+  (log (adjust-malloc-size (i32.const 12) (i32.const 2) (i32.const 8)))
+  ;; expect 16 - 2
+  (log (adjust-malloc-size (i32.const 14) (i32.const 2) (i32.const 8)))
+  (init-memory)
+  ;; expect 3
+  (log (malloc (i32.const 14))))
+
+(defexport.wat test-memory (func test-mem-process))
+
+;; --- --- ;;
 
 (defun.wat sample ((x i32)) (i32)
   (let (((tmp i32) (i32.const 100)))

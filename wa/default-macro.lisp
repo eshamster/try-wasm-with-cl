@@ -1,13 +1,15 @@
 (defpackage :try-wasm-with-cl/wa/default-macro
   (:use #:cl)
   (:export #:for
-           #:i32+)
+           #:i32+
+           #:i32-)
   (:import-from #:try-wasm-with-cl/wa/built-in-func
                 #:set-local
                 #:br
                 #:br-if
                 #:i32.const
-                #:i32.add)
+                #:i32.add
+                #:i32.sub)
   (:import-from #:try-wasm-with-cl/wa/defmacro
                 #:defmacro.wat)
   (:import-from #:try-wasm-with-cl/wa/reserved-word
@@ -79,6 +81,9 @@
                    var-forms)
           ,@body))
 
+(defmacro.wat let* (var-form &body body)
+  `(let ,var-form ,@body))
+
 (defmacro.wat for (for-name (&key init break mod) &body body)
   (let ((block-name (symbolicate for-name "-BLOCK"))
         (loop-name  (symbolicate for-name "-LOOP")))
@@ -110,3 +115,4 @@
               (rec numbers)))))))
 
 (def-calculation-macro i32+ i32.const i32.add)
+(def-calculation-macro i32- i32.const i32.sub)

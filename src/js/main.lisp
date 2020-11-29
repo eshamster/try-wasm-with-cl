@@ -17,12 +17,14 @@
          (import-object (pse-create (:console (:log console.log)
                                      :js (:mem memory
                                           :global global)))))
-    (console.log "test")
     (chain (#j.WebAssembly.instantiateStreaming# (fetch "wasm/main.wasm")
                                                  import-object)
            (then (lambda (results)
                    (console.log results)
-                   (results.instance.exports.exported_func))))))
+                   (console.log "--- call exported_func ---")
+                   (results.instance.exports.exported_func)
+                   (console.log "--- call test_memory ---")
+                   (results.instance.exports.test_memory))))))
 
 #|
 const memory = new WebAssembly.Memory({initial:1});
@@ -40,7 +42,9 @@ var importObject = {
 console.log("test");
 WebAssembly.instantiateStreaming(fetch('wasm/main.wasm'), importObject)
     .then(results => {
-        console.log(results);
+        console.log("--- call exported_func ---");
         results.instance.exports.exported_func();
+        console.log("--- call test_memory ---");
+        results.instance.exports.test_memory();
     });
 |#

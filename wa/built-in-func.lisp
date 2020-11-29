@@ -6,6 +6,7 @@
            #:i32.add
            #:i32.sub
            #:i32.mul
+           #:i32.rem-u
            #:i32.const
            #:i32.eq
            #:i32.eqz
@@ -48,6 +49,7 @@
 (def-built-in-func i32.add)
 (def-built-in-func i32.sub)
 (def-built-in-func i32.mul)
+(def-built-in-func i32.rem-u)
 (def-built-in-func i32.const)
 (def-built-in-func i32.eq)
 (def-built-in-func i32.eqz)
