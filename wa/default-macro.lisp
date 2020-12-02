@@ -38,6 +38,11 @@
   `(if ,test-form
        (progn ,@form)))
 
+(defmacro.wat unless (test-form &body form)
+  `(if ,test-form
+       (progn)
+       (progn ,@form)))
+
 (defmacro.wat cond (&rest clauses)
   (labels ((rec (rest-clauses)
              (unless rest-clauses

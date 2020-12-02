@@ -125,10 +125,10 @@
 
 (defun parse-function-call-form (form)
   (destructuring-bind (func &rest args) form
-    `(progn ,@(mapcar (lambda (arg)
-                        (parse-form arg))
-                      args)
-            (|call| ,(parse-atom func)))))
+    `(|call| ,(parse-atom func)
+             ,@(mapcar (lambda (arg)
+                         (parse-form arg))
+                       args))))
 
 (defun function-call-form-p (form)
   (let ((sym (car form)))
