@@ -18,8 +18,9 @@
                        :direction :output
                        :if-exists :supersede
                        :if-does-not-exist :create)
-    (princ (generate-wat-module)
-           out)))
+    (let ((*print-pretty* t))
+      (princ (generate-wat-module)
+             out))))
 
 (defun wat2wasm (wat-path wasm-path)
   (run-program (format nil "wat2wasm ~S -o ~S"
