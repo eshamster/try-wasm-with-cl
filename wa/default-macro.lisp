@@ -4,7 +4,6 @@
            #:i32+
            #:i32-)
   (:import-from #:try-wasm-with-cl/wa/built-in-func
-                #:set-local
                 #:br
                 #:br-if
                 #:i32.const
@@ -20,7 +19,8 @@
                 #:else
                 #:local
                 #:block
-                #:loop)
+                #:loop
+                #:set-local)
   (:import-from #:alexandria
                 #:symbolicate))
 (in-package :try-wasm-with-cl/wa/default-macro)

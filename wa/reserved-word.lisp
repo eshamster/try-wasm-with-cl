@@ -28,15 +28,21 @@
 
            #:|i32|
 
-           #:local)
+           #:local
+           #:|local|
+           #:get-local
+           #:|get_local|
+           #:set-local
+           #:|set_local|)
+  (:import-from #:try-wasm-with-cl/wa/utils
+                #:sym-to-sym-for-print)
   (:import-from #:alexandria
                 #:symbolicate))
 (in-package :try-wasm-with-cl/wa/reserved-word)
 
 (defmacro defrw (sym)
-  (let ((lower-sym (intern (string-downcase (symbol-name sym)))))
-    `(progn (defvar ,sym nil)
-            (defvar ,lower-sym nil))))
+  `(progn (defvar ,sym nil)
+          (defvar ,(sym-to-sym-for-print sym) nil)))
 
 (defrw module)
 
@@ -63,3 +69,5 @@
 ;; - special form - ;;
 
 (defrw local)
+(defrw get-local)
+(defrw set-local)

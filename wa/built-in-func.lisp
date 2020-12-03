@@ -15,13 +15,13 @@
            #:i32.store
            #:i32.load
 
-           #:get-local
-           #:set-local
            #:get-global
            #:set-global
 
            #:br
            #:br-if)
+  (:import-from #:try-wasm-with-cl/wa/utils
+                #:sym-to-sym-for-print)
   (:import-from #:cl-ppcre
                 #:regex-replace-all))
 (in-package :try-wasm-with-cl/wa/built-in-func)
@@ -34,11 +34,6 @@
 (defun convert-built-in-func (sym)
   (assert (built-in-func-p sym))
   (gethash sym *built-in-funcs*))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun sym-to-sym-for-print (sym)
-    (intern (string-downcase
-             (regex-replace-all "-" (symbol-name sym) "_")))))
 
 (defmacro def-built-in-func (sym &optional sym-for-print)
   `(progn (defvar ,sym nil)
@@ -58,9 +53,6 @@
 (def-built-in-func i32.gt-u)
 (def-built-in-func i32.store)
 (def-built-in-func i32.load)
-
-(def-built-in-func get-local)
-(def-built-in-func set-local)
 
 (def-built-in-func get-global |global.get|)
 (def-built-in-func set-global |global.set|)

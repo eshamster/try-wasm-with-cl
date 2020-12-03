@@ -3,8 +3,7 @@
   (:export #:parse-body)
   (:import-from #:try-wasm-with-cl/wa/built-in-func
                 #:built-in-func-p
-                #:convert-built-in-func
-                #:get-local)
+                #:convert-built-in-func)
   (:import-from #:try-wasm-with-cl/wa/defmacro
                 #:macroexpand.wat)
   (:import-from #:try-wasm-with-cl/wa/environment
@@ -22,7 +21,11 @@
                 #:|block|
                 #:block
                 #:|loop|
-                #:loop)
+                #:loop
+                #:get-local
+                #:|get_local|
+                #:set-local
+                #:|set_local|)
   (:import-from #:try-wasm-with-cl/wa/type
                 #:convert-type)
   (:import-from #:try-wasm-with-cl/wa/utils
@@ -103,11 +106,17 @@
     (loop (destructuring-bind (var &rest rest-form) (cdr form)
              (setf (wsymbol-var (intern.wat var)) t)
              `(|loop| ,(parse-atom var)
-                      ,@(parse-form rest-form))))))
+                      ,@(parse-form rest-form))))
+    (get-local `(|get_local| ,@(mapcar (lambda (unit)
+                                         (parse-form unit))
+                                       (cdr form))))
+    (set-local `(|set_local| ,@(mapcar (lambda (unit)
+                                         (parse-form unit))
+                                       (cdr form))))))
 
 (defun special-form-p (form)
   (case (car form)
-    ((progn local block loop)
+    ((progn local block loop get-local set-local)
      t)
     (t nil)))
 

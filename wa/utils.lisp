@@ -3,7 +3,8 @@
   (:export #:clone-list-with-modification
            #:parse-arg-name
            #:symbol-to-string
-           #:parse-mod-nm)
+           #:parse-mod-nm
+           #:sym-to-sym-for-print)
   (:import-from #:alexandria
                 #:symbolicate)
   (:import-from #:cl-ppcre
@@ -34,3 +35,7 @@
     (unless (= (length splitted) 2)
       (error "mod-nm should be \"xxx.yyy\" but got ~A" mod-nm))
     splitted))
+
+(defun sym-to-sym-for-print (sym)
+    (intern (string-downcase
+             (regex-replace-all "-" (symbol-name sym) "_"))))
