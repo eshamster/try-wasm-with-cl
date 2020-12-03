@@ -13,13 +13,7 @@
            #:i32.ge-u
            #:i32.gt-u
            #:i32.store
-           #:i32.load
-
-           #:get-global
-           #:set-global
-
-           #:br
-           #:br-if)
+           #:i32.load)
   (:import-from #:try-wasm-with-cl/wa/utils
                 #:sym-to-sym-for-print)
   (:import-from #:cl-ppcre
@@ -56,6 +50,3 @@
 
 (def-built-in-func get-global |global.get|)
 (def-built-in-func set-global |global.set|)
-
-(def-built-in-func br)
-(def-built-in-func br-if)

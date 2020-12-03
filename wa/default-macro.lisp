@@ -4,8 +4,6 @@
            #:i32+
            #:i32-)
   (:import-from #:try-wasm-with-cl/wa/built-in-func
-                #:br
-                #:br-if
                 #:i32.const
                 #:i32.add
                 #:i32.sub)
@@ -20,6 +18,8 @@
                 #:local
                 #:block
                 #:loop
+                #:br
+                #:br-if
                 #:set-local)
   (:import-from #:alexandria
                 #:symbolicate))

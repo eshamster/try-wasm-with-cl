@@ -33,16 +33,27 @@
            #:get-local
            #:|get_local|
            #:set-local
-           #:|set_local|)
+           #:|set_local|
+           #:get-global
+           #:|global.get|
+           #:set-global
+           #:|global.set|
+           #:br
+           #:|br|
+           #:br-if
+           #:|br-if|)
   (:import-from #:try-wasm-with-cl/wa/utils
                 #:sym-to-sym-for-print)
   (:import-from #:alexandria
                 #:symbolicate))
 (in-package :try-wasm-with-cl/wa/reserved-word)
 
-(defmacro defrw (sym)
+(defmacro defrw (sym &optional sym-for-print)
   `(progn (defvar ,sym nil)
-          (defvar ,(sym-to-sym-for-print sym) nil)))
+          (defvar ,(if sym-for-print
+                       sym-for-print
+                       (sym-to-sym-for-print sym))
+            nil)))
 
 (defrw module)
 
@@ -71,3 +82,7 @@
 (defrw local)
 (defrw get-local)
 (defrw set-local)
+(defrw get-global |global.get|)
+(defrw set-global |global.set|)
+(defrw br)
+(defrw br-if)
