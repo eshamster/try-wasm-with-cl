@@ -20,6 +20,7 @@
                 #:loop
                 #:br
                 #:br-if
+                #:get-local
                 #:set-local)
   (:import-from #:alexandria
                 #:symbolicate))
@@ -105,9 +106,14 @@
 (defmacro def-calculation-macro (name const op)
   `(defmacro.wat ,name (&rest numbers)
      (flet ((parse-number (number)
-              (if (numberp number)
-                  `(,',const ,number)
-                  number)))
+              (cond ((numberp number)
+                     `(,',const ,number))
+                    ;; XXX: Strictry speaking, require to judge
+                    ;; if the "number" is a local variable,
+                    ;; before adding "get-local"
+                    ((atom number)
+                     `(get-local ,number))
+                    (t number))))
        (case (length numbers)
          (0 `(,',const 0))
          (t (labels ((rec (rest-numbers)

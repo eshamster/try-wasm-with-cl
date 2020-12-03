@@ -146,7 +146,7 @@
 (defun parse-built-in-func-form (form)
   `(,(convert-built-in-func (car form))
     ,@(mapcar (lambda (elem)
-                (parse-form elem))
+                (parse-call-arg elem))
               (cdr form))))
 
 (defun built-in-func-form-p (form)

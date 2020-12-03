@@ -43,22 +43,20 @@
 ;; Instead, use store-i32 and load-i32 to process offset by 32 bits.
 
 (defun.wat store-i32 ((offset i32) (value i32)) ()
-  (i32.store (i32.mul (get-local offset)
-                      (i32.const 4))
-             (get-local value)))
+  (i32.store (i32.mul offset (i32.const 4))
+             value))
 
 (defun.wat load-i32 ((offset i32)) (i32)
-  (i32.load (i32.mul (get-local offset)
-                     (i32.const 4))))
+  (i32.load (i32.mul offset (i32.const 4))))
 
 (defun.wat get-global-memory-head () (i32)
   (i32.const 1))
 
 (defun.wat global-memory-head-p ((head i32)) (i32)
-  (i32.eq (get-local head) (i32.const 1)))
+  (i32.eq head (i32.const 1)))
 
 (defun.wat last-empty-head-p ((head i32)) (i32)
-  (i32.eqz (load-i32 (get-local head))))
+  (i32.eqz (load-i32 head)))
 
 (defun.wat get-header-size () (i32)
   (i32.const 1))
@@ -70,20 +68,20 @@
              (i32.const 0)))
 
 (defun.wat get-empty-memory-size ((head i32)) (i32)
-  (load-i32 (i32+ (get-local head) 1)))
+  (load-i32 (i32+ head 1)))
 
 (defun.wat set-empty-memory-size ((head i32) (size i32)) ()
-  (store-i32 (i32+ (get-local head) 1)
+  (store-i32 (i32+ head 1)
              size))
 
 (defun.wat get-header-of-pointer ((ptr i32)) (i32)
-  (load-i32 (i32- (get-local ptr) 1)))
+  (load-i32 (i32- ptr 1)))
 
 (defun.wat get-next-head ((head i32)) (i32)
   (load-i32 head))
 
 (defun.wat get-pointer-size ((ptr i32)) (i32)
-  (load-i32 (i32- (get-local ptr) 1)))
+  (load-i32 (i32- ptr 1)))
 
 ;; - malloc - ;;
 
@@ -94,54 +92,44 @@
         (result i32))
     (cond
       ;; --- Case of tail of memory.
-      ((i32.eq (get-local next-head) (i32.const 0))
+      ((i32.eq next-head (i32.const 0))
        ;; TODO: Extend memory if shortage
        (set-local new-head
-                  (i32+ (get-local head)
-                        (get-local size)
-                        (get-header-size)))
+                  (i32+ head size (get-header-size)))
        (store-i32 new-head (i32.const 0))
        (store-i32 prev-head new-head)
        (store-i32 head size)
-       (set-local result (i32+ (get-local head)
-                               (get-header-size))))
+       (set-local result (i32+ head (get-header-size))))
       ;; --- Case where empty size is enough.
       ((i32.ge-u (get-empty-memory-size head)
-                 (get-local size))
+                 size)
        (set-local rest-size (i32- (get-empty-memory-size head)
-                                  (get-local size)))
-       (if (i32.eqz (get-local rest-size))
+                                  size))
+       (if (i32.eqz rest-size)
            (set-local new-head (get-local next-head))
-           (progn (set-local new-head (i32+ (get-local head)
-                                            (get-local size)
-                                            (get-header-size)))
+           (progn (set-local new-head (i32+ head size (get-header-size)))
                   (store-i32 new-head next-head)
                   ;; Assume that area to store size is remained.
                   ;; (It should be ensured by alignement)
                   (set-empty-memory-size new-head
-                                         (i32- (get-local rest-size)
-                                               (get-header-size)))))
+                                         (i32- rest-size (get-header-size)))))
        (store-i32 prev-head new-head)
        (store-i32 head size)
-       (set-local result (i32+ (get-local head)
-                               (get-header-size))))
+       (set-local result (i32+ head (get-header-size))))
       ;; --- Case where empty size is not enough.
       (t (malloc-rec size head next-head)
          (set-local result))))
   (get-local result))
 
 (defun.wat adjust-malloc-size ((size i32) (header-size i32) (align-size i32)) (i32)
-  (let* (((required i32) (i32+ (get-local size)
-                               (get-local header-size)))
-         ((rem i32) (i32.rem-u (get-local required)
-                               (get-local align-size)))
+  (let* (((required i32) (i32+ size header-size))
+         ((rem i32) (i32.rem-u required align-size))
          (aligned i32))
-    (if (i32.eqz (get-local rem))
+    (if (i32.eqz rem)
         (set-local aligned (get-local required))
-        (set-local aligned (i32+ (get-local required)
-                                 (i32- (get-local align-size)
-                                       (get-local rem)))))
-    (i32- (get-local aligned) (get-local header-size))))
+        (set-local aligned (i32+ required
+                                 (i32- align-size rem))))
+    (i32- aligned header-size)))
 
 ;; Allocate memory and return offset of its head
 (defun.wat malloc ((size i32)) (i32)
@@ -158,10 +146,10 @@
 (defun.wat find-prev-empty-head-rec ((ptr i32) (head i32)) (i32)
   (let (((next-head i32) (get-next-head head))
         (result i32))
-    (cond ((i32.eqz (get-local next-head))
+    (cond ((i32.eqz next-head)
            ;; This case should not happen
            (set-local result (i32.const 0)))
-          ((i32.gt-u (get-local next-head) (get-local ptr))
+          ((i32.gt-u next-head ptr)
            (set-local result (get-local head)))
           (t (find-prev-empty-head-rec ptr next-head)
              (set-local result)))
@@ -174,10 +162,10 @@
 (defun.wat merge-empty-memory-if-enable ((prev-head i32) (head i32)) (i32)
   (let (((result i32) (i32.const 0)))
     (unless (global-memory-head-p prev-head)
-      (when (i32.eq (i32+ (get-local prev-head)
+      (when (i32.eq (i32+ prev-head
                           (get-header-size)
                           (get-empty-memory-size prev-head))
-                    (get-local head))
+                    head)
         (store-i32 prev-head
                    (get-next-head head))
         (unless (last-empty-head-p head)
@@ -191,9 +179,8 @@
 (defun.wat free ((ptr i32)) ()
   (let* (((prev-head i32) (find-prev-empty-head ptr))
          ((next-head i32) (get-next-head prev-head))
-         ((new-head i32) (i32- (get-local ptr)
-                               (get-header-size)))
-         ((size i32) (get-pointer-size (get-local ptr))))
+         ((new-head i32) (i32- ptr (get-header-size)))
+         ((size i32) (get-pointer-size ptr)))
     ;; register ptr as empty
     (store-i32 prev-head new-head)
     (store-i32 new-head next-head)
@@ -252,23 +239,21 @@
 
 (defun.wat sample ((x i32)) (i32)
   (let (((tmp i32) (i32.const 100)))
-    (i32.add (get-local x) (get-local tmp))))
+    (i32.add x tmp)))
 
 (defun.wat test-if ((x i32)) ()
-  (if (i32.eqz (get-local x))
+  (if (i32.eqz x)
       (log (i32.const 10))
       (log (i32.const 20))))
 
 (defun.wat test-unless ((x i32)) ()
-  (unless (i32.eqz (get-local x))
+  (unless (i32.eqz x)
     (log (i32.const 30))))
 
 (defun.wat test-cond ((x i32)) ()
-  (cond ((i32.eq (get-local x)
-                 (i32.const 1))
+  (cond ((i32.eq x (i32.const 1))
          (log (i32.const 111)))
-        ((i32.eq (get-local x)
-                 (i32.const 2))
+        ((i32.eq x (i32.const 2))
          (log (i32.const 222)))
         (t (log (i32.const 999)))))
 
@@ -282,15 +267,15 @@
   (let ((i i32)
         ((max i32) (i32.const 5)))
     (for f (:init (set-local i (i32.const 1))
-            :break (i32.ge-u (get-local i) (get-local max))
+            :break (i32.ge-u i max)
             :mod (incf-i32 i))
          (log i))))
 
 (defun.wat test-plus ((x i32)) ()
   (log (i32+))
-  (log (i32+ (get-local x)))
-  (log (i32+ (get-local x) 1))
-  (log (i32+ (get-local x) 1 2)))
+  (log (i32+ x))
+  (log (i32+ x 1))
+  (log (i32+ x 1 2)))
 
 (defun.wat test-memory () ()
   (i32.store (i32.const 5)
@@ -304,10 +289,10 @@
 ;; factorial
 (defun.wat test-rec ((x i32)) (i32)
   (let ((result i32))
-    (if (i32.ge-u (i32.const 1) (get-local x))
+    (if (i32.ge-u (i32.const 1) x)
         (set-local result (i32.const 1))
-        (progn (i32.mul (get-local x)
-                        (test-rec (i32.sub (get-local x) (i32.const 1))))
+        (progn (i32.mul x
+                        (test-rec (i32.sub x (i32.const 1))))
                (set-local result)))
     (get-local result)))
 
