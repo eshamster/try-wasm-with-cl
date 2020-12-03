@@ -3,7 +3,8 @@
   (:export #:parse-body)
   (:import-from #:try-wasm-with-cl/wa/built-in-func
                 #:built-in-func-p
-                #:convert-built-in-func)
+                #:convert-built-in-func
+                #:get-local)
   (:import-from #:try-wasm-with-cl/wa/defmacro
                 #:macroexpand.wat)
   (:import-from #:try-wasm-with-cl/wa/environment
@@ -110,6 +111,14 @@
      t)
     (t nil)))
 
+;; - function call arg - ;;
+
+(defun parse-call-arg (arg)
+  (if (and (atom arg)
+           (var-p arg))
+      (parse-form `(get-local ,arg))
+      (parse-form arg)))
+
 ;; - built-in function form - ;;
 
 (defun parse-built-in-func-form (form)
@@ -127,7 +136,7 @@
   (destructuring-bind (func &rest args) form
     `(|call| ,(parse-atom func)
              ,@(mapcar (lambda (arg)
-                         (parse-form arg))
+                         (parse-call-arg arg))
                        args))))
 
 (defun function-call-form-p (form)

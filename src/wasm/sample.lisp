@@ -74,13 +74,13 @@
 
 (defun.wat set-empty-memory-size ((head i32) (size i32)) ()
   (store-i32 (i32+ (get-local head) 1)
-             (get-local size)))
+             size))
 
 (defun.wat get-header-of-pointer ((ptr i32)) (i32)
   (load-i32 (i32- (get-local ptr) 1)))
 
 (defun.wat get-next-head ((head i32)) (i32)
-  (load-i32 (get-local head)))
+  (load-i32 head))
 
 (defun.wat get-pointer-size ((ptr i32)) (i32)
   (load-i32 (i32- (get-local ptr) 1)))
@@ -88,7 +88,7 @@
 ;; - malloc - ;;
 
 (defun.wat malloc-rec ((size i32) (prev-head i32) (head i32)) (i32)
-  (let (((next-head i32) (get-next-head (get-local head)))
+  (let (((next-head i32) (get-next-head head))
         (new-head i32)
         (rest-size i32)
         (result i32))
@@ -100,41 +100,33 @@
                   (i32+ (get-local head)
                         (get-local size)
                         (get-header-size)))
-       (store-i32 (get-local new-head)
-                  (i32.const 0))
-       (store-i32 (get-local prev-head)
-                  (get-local new-head))
-       (store-i32 (get-local head)
-                  (get-local size))
+       (store-i32 new-head (i32.const 0))
+       (store-i32 prev-head new-head)
+       (store-i32 head size)
        (set-local result (i32+ (get-local head)
                                (get-header-size))))
       ;; --- Case where empty size is enough.
-      ((i32.ge-u (get-empty-memory-size (get-local head))
+      ((i32.ge-u (get-empty-memory-size head)
                  (get-local size))
-       (set-local rest-size (i32- (get-empty-memory-size (get-local head))
+       (set-local rest-size (i32- (get-empty-memory-size head)
                                   (get-local size)))
        (if (i32.eqz (get-local rest-size))
            (set-local new-head (get-local next-head))
            (progn (set-local new-head (i32+ (get-local head)
                                             (get-local size)
                                             (get-header-size)))
-                  (store-i32 (get-local new-head)
-                             (get-local next-head))
+                  (store-i32 new-head next-head)
                   ;; Assume that area to store size is remained.
                   ;; (It should be ensured by alignement)
-                  (set-empty-memory-size (get-local new-head)
+                  (set-empty-memory-size new-head
                                          (i32- (get-local rest-size)
                                                (get-header-size)))))
-       (store-i32 (get-local prev-head)
-                  (get-local new-head))
-       (store-i32 (get-local head)
-                  (get-local size))
+       (store-i32 prev-head new-head)
+       (store-i32 head size)
        (set-local result (i32+ (get-local head)
                                (get-header-size))))
       ;; --- Case where empty size is not enough.
-      (t (malloc-rec (get-local size)
-                     (get-local head)
-                     (get-local next-head))
+      (t (malloc-rec size head next-head)
          (set-local result))))
   (get-local result))
 
@@ -153,71 +145,65 @@
 
 ;; Allocate memory and return offset of its head
 (defun.wat malloc ((size i32)) (i32)
-  (let (((actual-size i32) (adjust-malloc-size (get-local size)
+  (let (((actual-size i32) (adjust-malloc-size size
                                                (get-header-size)
                                                (i32.const 2)))
         ((global-head i32) (get-global-memory-head)))
-    (malloc-rec (get-local actual-size)
-                (get-local global-head)
-                (get-next-head (get-local global-head)))))
+    (malloc-rec actual-size
+                global-head
+                (get-next-head global-head))))
 
 ;; - free - ;;
 
 (defun.wat find-prev-empty-head-rec ((ptr i32) (head i32)) (i32)
-  (let (((next-head i32) (get-next-head (get-local head)))
+  (let (((next-head i32) (get-next-head head))
         (result i32))
     (cond ((i32.eqz (get-local next-head))
            ;; This case should not happen
            (set-local result (i32.const 0)))
           ((i32.gt-u (get-local next-head) (get-local ptr))
            (set-local result (get-local head)))
-          (t (find-prev-empty-head-rec (get-local ptr)
-                                       (get-local next-head))
+          (t (find-prev-empty-head-rec ptr next-head)
              (set-local result)))
     (get-local result)))
 
 (defun.wat find-prev-empty-head ((ptr i32)) (i32)
-  (find-prev-empty-head-rec (get-local ptr) (get-global-memory-head)))
+  (find-prev-empty-head-rec ptr (get-global-memory-head)))
 
 ;; Return 1 if merge is enable, otherwize return 0.
 (defun.wat merge-empty-memory-if-enable ((prev-head i32) (head i32)) (i32)
   (let (((result i32) (i32.const 0)))
-    (unless (global-memory-head-p (get-local prev-head))
+    (unless (global-memory-head-p prev-head)
       (when (i32.eq (i32+ (get-local prev-head)
                           (get-header-size)
-                          (get-empty-memory-size (get-local prev-head)))
+                          (get-empty-memory-size prev-head))
                     (get-local head))
-        (store-i32 (get-local prev-head)
-                   (get-next-head (get-local head)))
-        (unless (last-empty-head-p (get-local head))
-          (set-empty-memory-size (get-local prev-head)
-                                 (i32+ (get-empty-memory-size (get-local prev-head))
+        (store-i32 prev-head
+                   (get-next-head head))
+        (unless (last-empty-head-p head)
+          (set-empty-memory-size prev-head
+                                 (i32+ (get-empty-memory-size prev-head)
                                        (get-header-size)
-                                       (get-empty-memory-size (get-local head)))))
+                                       (get-empty-memory-size head))))
         (set-local result (i32.const 1))))
     (get-local result)))
 
 (defun.wat free ((ptr i32)) ()
-  (let* (((prev-head i32) (find-prev-empty-head (get-local ptr)))
-         ((next-head i32) (get-next-head (get-local prev-head)))
+  (let* (((prev-head i32) (find-prev-empty-head ptr))
+         ((next-head i32) (get-next-head prev-head))
          ((new-head i32) (i32- (get-local ptr)
                                (get-header-size)))
          ((size i32) (get-pointer-size (get-local ptr))))
     ;; register ptr as empty
-    (store-i32 (get-local prev-head)
-               (get-local new-head))
-    (store-i32 (get-local new-head)
-               (get-local next-head))
-    (set-empty-memory-size (get-local new-head)
-                           (get-local size))
+    (store-i32 prev-head new-head)
+    (store-i32 new-head next-head)
+    (set-empty-memory-size new-head size)
     ;; merge into prev empty if enable
-    (when (merge-empty-memory-if-enable (get-local prev-head)
-                                        (get-local new-head))
+    (when (merge-empty-memory-if-enable prev-head new-head)
       (set-local new-head (get-local prev-head)))
     ;; merge into next empty if enable
     ;; (Use "when" to return no value)
-    (when (merge-empty-memory-if-enable (get-local new-head)
-                                        (get-local next-head)))))
+    (when (merge-empty-memory-if-enable new-head next-head))))
 
 ;; - test - ;;
 
@@ -234,28 +220,28 @@
     ;; - malloc - ;;
     ;; expect 3 - free space: 8~
     (set-local mem1 (malloc (i32.const 5)))
-    (log (get-local mem1))
+    (log mem1)
     ;; expect 9 - free space: 12~
     (set-local mem2 (malloc (i32.const 3)))
-    (log (get-local mem2))
+    (log mem2)
     ;; expect 13 - free space: 18~
     (set-local mem3 (malloc (i32.const 4)))
-    (log (get-local mem3))
+    (log mem3)
     (log (load-i32 (get-global-memory-head))) ; expect 18
 
     ;; - free - ;;
     ;; free space: 8~11, 18~
-    (free (get-local mem2))
+    (free mem2)
     (log (load-i32 (get-global-memory-head))) ; expect 8
     (log (load-i32 (i32.const 8))) ; expect 18
     (log (load-i32 (get-empty-memory-size (i32.const 8)))) ; expect 3
     ;; free space: 2~11, 18~
-    (free (get-local mem1))
+    (free mem1)
     (log (load-i32 (get-global-memory-head))) ; expect 2
     (log (load-i32 (i32.const 2))) ; expect 18
     (log (load-i32 (i32.const 3))) ; expect 5 + 1 + 3 = 9 (empty size)
     ;; free space: 2~
-    (free (get-local mem3))
+    (free mem3)
     (log (load-i32 (get-global-memory-head))) ; expect 2
     (log (last-empty-head-p (i32.const 2))) ; expect 1
     ))
@@ -298,7 +284,7 @@
     (for f (:init (set-local i (i32.const 1))
             :break (i32.ge-u (get-local i) (get-local max))
             :mod (incf-i32 i))
-         (log (get-local i)))))
+         (log i))))
 
 (defun.wat test-plus ((x i32)) ()
   (log (i32+))
