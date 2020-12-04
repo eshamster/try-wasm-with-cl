@@ -21,7 +21,8 @@
 (defmacro defun.wat (name args result &body body)
   `(progn (setf (wsymbol-function (intern.wat ',name))
                 (lambda ()
-                  (generate-defun ',name ',args ',result ',body)))))
+                  (generate-defun ',name ',args ',result ',body)))
+          ,(defun-empty% name args)))
 
 (defun generate-defun (name args result body)
   (multiple-value-bind (parsed-typeuse vars)
@@ -30,3 +31,8 @@
       ,(parse-arg-name name)
       ,@parsed-typeuse
       ,@(parse-body body vars))))
+
+(defun defun-empty% (name args)
+  (let ((args-var (mapcar #'car args)))
+    `(defun ,name ,args-var
+       (declare (ignore ,@args-var)))))
