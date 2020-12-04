@@ -123,9 +123,10 @@
     (br-if (parse-1-arg-special-form '|br_if| (cdr form)))))
 
 (defun parse-1-arg-special-form (head args)
-  `(,head ,@(mapcar (lambda (unit)
-                      (parse-form unit))
-                    args)))
+  `(,head ,(parse-form (car args))
+          ,@(mapcar (lambda (unit)
+                      (parse-call-arg unit))
+                    (cdr args))))
 
 (defun special-form-p (form)
   (case (car form)

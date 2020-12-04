@@ -106,7 +106,7 @@
        (set-local rest-size (i32- (get-empty-memory-size head)
                                   size))
        (if (i32.eqz rest-size)
-           (set-local new-head (get-local next-head))
+           (set-local new-head next-head)
            (progn (set-local new-head (i32+ head size (get-header-size)))
                   (store-i32 new-head next-head)
                   ;; Assume that area to store size is remained.
@@ -126,7 +126,7 @@
          ((rem i32) (i32.rem-u required align-size))
          (aligned i32))
     (if (i32.eqz rem)
-        (set-local aligned (get-local required))
+        (set-local aligned required)
         (set-local aligned (i32+ required
                                  (i32- align-size rem))))
     (i32- aligned header-size)))
@@ -150,7 +150,7 @@
            ;; This case should not happen
            (set-local result (i32.const 0)))
           ((i32.gt-u next-head ptr)
-           (set-local result (get-local head)))
+           (set-local result head))
           (t (find-prev-empty-head-rec ptr next-head)
              (set-local result)))
     (get-local result)))
@@ -187,7 +187,7 @@
     (set-empty-memory-size new-head size)
     ;; merge into prev empty if enable
     (when (merge-empty-memory-if-enable prev-head new-head)
-      (set-local new-head (get-local prev-head)))
+      (set-local new-head prev-head))
     ;; merge into next empty if enable
     ;; (Use "when" to return no value)
     (when (merge-empty-memory-if-enable new-head next-head))))
