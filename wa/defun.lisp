@@ -22,7 +22,9 @@
   `(progn (setf (wsymbol-function (intern.wat ',name))
                 (lambda ()
                   (generate-defun ',name ',args ',result ',body)))
-          ,(defun-empty% name args)))
+          ,(unless (eq (symbol-package name)
+                       (find-package "CL"))
+             (defun-empty% name args))))
 
 (defun generate-defun (name args result body)
   (multiple-value-bind (parsed-typeuse vars)
