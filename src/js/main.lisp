@@ -24,7 +24,9 @@
                    (console.log "--- call exported_func ---")
                    (results.instance.exports.exported_func)
                    (console.log "--- call test_memory ---")
-                   (results.instance.exports.test_memory))))))
+                   (results.instance.exports.test_memory)
+                   (console.log "--- call test_list ---")
+                   (results.instance.exports.test_list))))))
 
 #|
 const memory = new WebAssembly.Memory({initial:1});
@@ -46,5 +48,7 @@ WebAssembly.instantiateStreaming(fetch('wasm/main.wasm'), importObject)
         results.instance.exports.exported_func();
         console.log("--- call test_memory ---");
         results.instance.exports.test_memory();
+        console.log("--- call test_list ---");
+        results.instance.exports.test_list();
     });
 |#

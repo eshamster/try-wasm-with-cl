@@ -49,6 +49,9 @@
 (defun.wat load-i32 ((offset i32)) (i32)
   (i32.load (i32.mul offset (i32.const 4))))
 
+(defun.wat get-null-ptr () (i32)
+  (i32.const 0))
+
 (defun.wat get-global-memory-head () (i32)
   (i32.const 1))
 
@@ -234,6 +237,103 @@
     ))
 
 (defexport.wat test-memory (func test-mem-process))
+
+;; --- deftype.wat --- ;;
+
+(defun.wat get-type-header-size () (i32)
+  (i32.const 1))
+
+(defun.wat get-type ((ptr i32)) (i32)
+  (load-i32 ptr))
+
+(defun.wat get-type-data-offset ((ptr i32)) (i32)
+  (i32+ ptr (i32.const 1)))
+
+(defmacro deftype.wat (name size id)
+  ;; TODO: Automatically asign id
+  `(progn (defun.wat ,(symbolicate "MAKE-" name) () (i32)
+            (let (((ptr i32) (malloc (i32+ (get-type-header-size)
+                                           (i32.const ,size)))))
+              (store-i32 ptr (i32.const ,id))
+              (get-local ptr)))
+          (defun.wat ,(symbolicate name "-P") ((typ i32)) (i32)
+            (i32.eq typ (i32.const ,id)))
+          (defun.wat ,(symbolicate name "-PTR-P") ((type-ptr i32)) (i32)
+            (,(symbolicate name "-P") (get-type type-ptr)))))
+
+;; - i32 - ;;
+
+(deftype.wat i32 1 1)
+
+(defun.wat new-i32 ((value i32)) (i32)
+  (let (((ptr i32) (make-i32)))
+    (set-i32 ptr value)
+    (get-local ptr)))
+
+(defun.wat get-i32 ((i32-ptr i32)) (i32)
+  (load-i32 (get-type-data-offset i32-ptr)))
+
+(defun.wat set-i32 ((i32-ptr i32) (value i32)) ()
+  (store-i32 (get-type-data-offset i32-ptr)
+             value))
+
+;; - cons cell - ;;
+
+;; storage 2 pointers
+(deftype.wat cons-cell 2 101)
+
+(defun.wat cons ((ptr-car i32) (ptr-cdr i32)) (i32)
+  (let (((ptr i32) (make-cons-cell)))
+    (set-car ptr ptr-car)
+    (set-cdr ptr ptr-cdr)
+    (get-local ptr)))
+
+(defun.wat car ((cons-cell-ptr i32)) (i32)
+  (load-i32 (get-type-data-offset cons-cell-ptr)))
+
+(defun.wat set-car ((cons-cell-ptr i32) (value i32)) ()
+  (store-i32 (get-type-data-offset cons-cell-ptr)
+             value))
+
+(defun.wat cdr ((cons-cell-ptr i32)) (i32)
+  (load-i32 (i32+ (get-type-data-offset cons-cell-ptr)
+                  (i32.const 1))))
+
+(defun.wat set-cdr ((cons-cell-ptr i32) (value i32)) ()
+  (store-i32 (i32+ (get-type-data-offset cons-cell-ptr)
+                   (i32.const 1))
+             value))
+
+;; - utils - ;;
+
+(defun.wat atom ((type-ptr i32)) (i32)
+  (let ((result i32))
+    (cond ((i32-p type-ptr)
+           (set-local result (i32.const 1)))
+          (t
+           (set-local result (i32.const 0))))
+    (get-local result)))
+
+;; - test - ;;
+
+(defun.wat test-list () ()
+  (let ((simple-cons i32)
+        (lst i32))
+    ;; simple cons cell
+    (set-local simple-cons
+               (cons (new-i32 (i32.const 1))
+                     (new-i32 (i32.const 2))))
+    (log (get-i32 (car simple-cons)))
+    (log (get-i32 (cdr simple-cons)))
+    ;; list
+    (set-local lst (cons (new-i32 (i32.const 10))
+                         (cons (new-i32 (i32.const 20))
+                               (new-i32 (i32.const 30)))))
+    (log (get-i32 (car lst)))
+    (log (get-i32 (car (cdr lst))))
+    (log (get-i32 (cdr (cdr lst))))))
+
+(defexport.wat test-list (func test-list))
 
 ;; --- --- ;;
 
