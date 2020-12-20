@@ -77,9 +77,6 @@
   (store-i32 (i32+ head 1)
              size))
 
-(defun.wat get-header-of-pointer ((ptr i32)) (i32)
-  (load-i32 (i32- ptr 1)))
-
 (defun.wat get-next-head ((head i32)) (i32)
   (load-i32 head))
 
