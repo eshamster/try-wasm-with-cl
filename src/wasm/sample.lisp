@@ -253,10 +253,10 @@
                                            (i32.const ,size)))))
               (store-i32 ptr (i32.const ,id))
               (get-local ptr)))
-          (defun.wat ,(symbolicate name "-P") ((typ i32)) (i32)
+          (defun.wat ,(symbolicate name "-ID-P") ((typ i32)) (i32)
             (i32.eq typ (i32.const ,id)))
-          (defun.wat ,(symbolicate name "-PTR-P") ((type-ptr i32)) (i32)
-            (,(symbolicate name "-P") (get-type type-ptr)))))
+          (defun.wat ,(symbolicate name "-P") ((type-ptr i32)) (i32)
+            (,(symbolicate name "-ID-P") (get-type type-ptr)))))
 
 ;; - i32 - ;;
 
@@ -273,6 +273,9 @@
 (defun.wat set-i32 ((i32-ptr i32) (value i32)) ()
   (store-i32 (get-type-data-offset i32-ptr)
              value))
+
+(defun.wat free-i32 ((i32-ptr i32)) ()
+  (free i32-ptr))
 
 ;; - cons cell - ;;
 
@@ -301,6 +304,11 @@
                    (i32.const 1))
              value))
 
+(defun.wat free-cons-cell ((cons-cell-ptr i32)) ()
+  (free-typed (car cons-cell-ptr))
+  (free-typed (cdr cons-cell-ptr))
+  (free cons-cell-ptr))
+
 ;; - utils - ;;
 
 (defun.wat atom ((type-ptr i32)) (i32)
@@ -311,11 +319,16 @@
            (set-local result (i32.const 0))))
     (get-local result)))
 
+(defun.wat free-typed ((type-ptr i32)) ()
+  (cond ((i32-p type-ptr) (free-i32 type-ptr))
+        ((cons-cell-p type-ptr) (free-cons-cell type-ptr))))
+
 ;; - test - ;;
 
 (defun.wat test-list () ()
   (let ((simple-cons i32)
-        (lst i32))
+        (lst i32)
+        (test-ptr i32))
     ;; simple cons cell
     (set-local simple-cons
                (cons (new-i32 (i32.const 1))
@@ -328,7 +341,13 @@
                                (new-i32 (i32.const 30)))))
     (log (get-i32 (car lst)))
     (log (get-i32 (car (cdr lst))))
-    (log (get-i32 (cdr (cdr lst))))))
+    (log (get-i32 (cdr (cdr lst))))
+    ;; free
+    (log (load-i32 (get-global-memory-head))) ; expect 2
+    (free-typed simple-cons)
+    (free-typed lst)
+    (log (load-i32 (get-global-memory-head))) ; expect 2
+    ))
 
 (defexport.wat test-list (func test-list))
 
