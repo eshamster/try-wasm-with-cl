@@ -359,17 +359,14 @@
     (set-local simple-cons
                (cons (new-i32 (i32.const 1))
                      (new-i32 (i32.const 2))))
-    (log (get-i32 (car simple-cons)))
-    (log (get-i32 (cdr simple-cons)))
+    (print-typed simple-cons)
     ;; list
     (set-local lst (cons (new-i32 (i32.const 10))
                          (cons (new-i32 (i32.const 20))
                                (new-i32 (i32.const 30)))))
-    (log (get-i32 (car lst)))
-    (log (get-i32 (car (cdr lst))))
-    (log (get-i32 (cdr (cdr lst))))
+    (print-typed lst)
     ;; free
-    (log (load-i32 (get-global-memory-head))) ; expect 2
+    (log (load-i32 (get-global-memory-head))) ; expect not 2
     (free-typed simple-cons)
     (free-typed lst)
     (log (load-i32 (get-global-memory-head))) ; expect 2
@@ -479,7 +476,9 @@
   (with-debug
     (test-shared-ptr1)
     (test-shared-ptr2)
-    (test-shared-ptr3)))
+    (test-shared-ptr3))
+  (log (load-i32 (get-global-memory-head))) ; expect 2
+  )
 
 (defexport.wat test-shared-ptr (func test-shared-ptr))
 
