@@ -14,9 +14,13 @@
          (global (new (#j.WebAssembly.Global# (create :value "i32"
                                                       :mutable true)
                                               0)))
+         (debug (new (#j.WebAssembly.Global# (create :value "i32"
+                                                     :mutable true)
+                                             0)))
          (import-object (pse-create (:console (:log console.log)
                                      :js (:mem memory
-                                          :global global)))))
+                                          :global global
+                                          :debug debug)))))
     (chain (#j.WebAssembly.instantiateStreaming# (fetch "wasm/main.wasm")
                                                  import-object)
            (then (lambda (results)
@@ -26,7 +30,9 @@
                    (console.log "--- call test_memory ---")
                    (results.instance.exports.test_memory)
                    (console.log "--- call test_list ---")
-                   (results.instance.exports.test_list))))))
+                   (results.instance.exports.test_list)
+                   (console.log "--- call test_shared_ptr ---")
+                   (results.instance.exports.test_shared_ptr))))))
 
 #|
 const memory = new WebAssembly.Memory({initial:1});
@@ -50,5 +56,7 @@ WebAssembly.instantiateStreaming(fetch('wasm/main.wasm'), importObject)
         results.instance.exports.test_memory();
         console.log("--- call test_list ---");
         results.instance.exports.test_list();
+        console.log("--- call test_shared_ptr ---");
+        results.instance.exports.test_shared_ptr();
     });
 |#

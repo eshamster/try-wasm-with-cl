@@ -39,6 +39,20 @@
 
 (defglobal.wat g js.global (mut i32))
 
+;; --- debug --- ;;
+
+(defglobal.wat debug js.debug (mut i32))
+
+(defmacro.wat with-debug (&body body)
+  `(progn (set-global debug (i32.const 1))
+          ,@body
+          (set-global debug (i32.const 0))))
+
+(defun.wat debug-p () (i32)
+  (get-global debug))
+
+;; --- memory allocation --- ;;
+
 ;; Note: The offset of i32.store and i32.load is by 8 bits.
 ;; Instead, use store-i32 and load-i32 to process offset by 32 bits.
 
@@ -297,7 +311,7 @@
 
 (defun.wat cdr ((cons-cell-ptr i32)) (i32)
   (load-i32 (i32+ (get-type-data-offset cons-cell-ptr)
-                  (i32.const 1))))
+                  1)))
 
 (defun.wat set-cdr ((cons-cell-ptr i32) (value i32)) ()
   (store-i32 (i32+ (get-type-data-offset cons-cell-ptr)
@@ -321,7 +335,19 @@
 
 (defun.wat free-typed ((type-ptr i32)) ()
   (cond ((i32-p type-ptr) (free-i32 type-ptr))
-        ((cons-cell-p type-ptr) (free-cons-cell type-ptr))))
+        ((cons-cell-p type-ptr) (free-cons-cell type-ptr))
+        ((shared-ptr-p type-ptr) (deref-shared-ptr type-ptr))))
+
+(defun.wat print-typed ((type-ptr i32)) ()
+  (cond ((i32.eqz type-ptr))
+        ((i32-p type-ptr)
+         (log (get-i32 type-ptr)))
+        ((cons-cell-p type-ptr)
+         (print-typed (car type-ptr))
+         (print-typed (cdr type-ptr)))
+        ((shared-ptr-p type-ptr)
+         (with-destruct (type-ptr)
+           (print-typed (shared-ptr-ptr type-ptr))))))
 
 ;; - test - ;;
 
@@ -350,6 +376,112 @@
     ))
 
 (defexport.wat test-list (func test-list))
+
+;; --- shared-ptr --- ;;
+
+(deftype.wat shared-ptr 2 999)
+
+(defun.wat new-shared-ptr ((ptr i32)) (i32)
+  (let (((result i32) (make-shared-ptr)))
+    (set-shared-ptr-ref-count result (i32.const 1))
+    (store-i32 (i32+ (get-type-data-offset result)
+                     1)
+               ptr)
+    (get-local result)))
+
+(defun.wat ref-shared-ptr ((shared-ptr i32)) (i32)
+  (let (((ref-count i32) (shared-ptr-ref-count shared-ptr)))
+    (set-shared-ptr-ref-count shared-ptr
+                              (i32+ ref-count 1))
+    (get-local shared-ptr)))
+
+(defun.wat deref-shared-ptr ((shared-ptr i32)) ()
+  (let (((ref-count i32) (shared-ptr-ref-count shared-ptr)))
+    (if (i32.eq ref-count (i32.const 1))
+        (progn (when (debug-p)
+                 (log (i32.const 9999999)))
+               (free-typed (shared-ptr-ptr shared-ptr))
+               (free shared-ptr))
+        (set-shared-ptr-ref-count shared-ptr
+                                  (i32- ref-count 1)))))
+
+(defun.wat shared-ptr-ref-count ((shared-ptr i32)) (i32)
+  (load-i32 (get-type-data-offset shared-ptr)))
+
+(defun.wat set-shared-ptr-ref-count ((shared-ptr i32) (ref-count i32)) ()
+  (store-i32 (get-type-data-offset shared-ptr)
+             ref-count))
+
+(defun.wat shared-ptr-ptr ((shared-ptr i32)) (i32)
+  (load-i32 (i32+ (get-type-data-offset shared-ptr)
+                  1)))
+
+(defmacro.wat set-local-shared-ptr (place shared-ptr)
+  `(progn (when (shared-ptr-p ,place)
+            (deref-shared-ptr ,place))
+          ;; Note: Use "when" to ignore return value
+          (when (ref-shared-ptr ,shared-ptr))
+          (set-local ,place ,shared-ptr)))
+
+(defun.wat destruct ((type-ptr i32)) ()
+  (cond ((shared-ptr-p type-ptr)
+         (deref-shared-ptr type-ptr))))
+
+(defmacro.wat with-destruct (type-ptr-lst &body body)
+  ;; Note: with-destruct doesn't return nothing.
+  `(progn ,@body
+          ,@(mapcar (lambda (type-ptr)
+                      `(destruct ,type-ptr))
+                    type-ptr-lst)))
+
+(defun.wat test-shared-ptr1 () ()
+  (let (((temp1 i32) (new-shared-ptr
+                      (new-i32 (i32.const 100))))
+        ((temp2 i32) (new-shared-ptr
+                       (new-i32 (i32.const 200)))))
+    (with-destruct (temp1 temp2)
+      (print-typed (ref-shared-ptr temp2))
+      (set-local-shared-ptr temp2 temp1)
+      (log (i32.const 111111))
+      (print-typed (ref-shared-ptr temp1))
+      (print-typed (ref-shared-ptr temp2))
+      (log (i32.const 111222)))
+    (log (i32.const 111333))))
+
+(defun.wat cons.sp ((ptr1 i32) (ptr2 i32)) (i32)
+  (new-shared-ptr
+   (cons (new-shared-ptr ptr1)
+         (new-shared-ptr ptr2))))
+
+(defun.wat test-shared-ptr2 () ()
+  (let (((lst i32) (cons.sp (new-i32 (i32.const 1))
+                            (new-i32 (i32.const 2)))))
+    (with-destruct (lst)
+      (log (i32.const 222111))
+      (print-typed (ref-shared-ptr lst)))
+    (log (i32.const 222222))))
+
+(defun.wat test-shared-ptr3-called ((sp i32)) ()
+  (with-destruct (sp)
+    (log (i32.const 333999))
+    (print-typed (ref-shared-ptr sp)))
+  (log (i32.const 333888)))
+
+(defun.wat test-shared-ptr3 () ()
+  (let (((sp i32) (new-shared-ptr (new-i32 (i32.const 1)))))
+    (with-destruct (sp)
+      (log (i32.const 333111))
+      (test-shared-ptr3-called (ref-shared-ptr sp))
+      (log (i32.const 333222)))
+    (log (i32.const 333333))))
+
+(defun.wat test-shared-ptr () ()
+  (with-debug
+    (test-shared-ptr1)
+    (test-shared-ptr2)
+    (test-shared-ptr3)))
+
+(defexport.wat test-shared-ptr (func test-shared-ptr))
 
 ;; --- --- ;;
 
