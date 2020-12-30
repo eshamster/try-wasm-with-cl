@@ -338,16 +338,23 @@
         ((cons-cell-p type-ptr) (free-cons-cell type-ptr))
         ((shared-ptr-p type-ptr) (deref-shared-ptr type-ptr))))
 
+(defun.wat print-typed-rec ((type-ptr i32)) ()
+  (let ((temp i32))
+    (cond ((i32.eqz type-ptr))
+          ((i32-p type-ptr)
+           (log (get-i32 type-ptr)))
+          ((cons-cell-p type-ptr)
+           (print-typed-rec (car type-ptr))
+           (print-typed-rec (cdr type-ptr)))
+          ((shared-ptr-p type-ptr)
+           ;; Without destruct
+           (print-typed-rec (shared-ptr-ptr type-ptr))))))
+
 (defun.wat print-typed ((type-ptr i32)) ()
-  (cond ((i32.eqz type-ptr))
-        ((i32-p type-ptr)
-         (log (get-i32 type-ptr)))
-        ((cons-cell-p type-ptr)
-         (print-typed (car type-ptr))
-         (print-typed (cdr type-ptr)))
-        ((shared-ptr-p type-ptr)
+  (cond ((shared-ptr-p type-ptr)
          (with-destruct (type-ptr)
-           (print-typed (shared-ptr-ptr type-ptr))))))
+           (print-typed-rec type-ptr)))
+        (t (print-typed-rec type-ptr))))
 
 ;; - test - ;;
 
