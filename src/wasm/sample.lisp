@@ -438,17 +438,35 @@
                       `(destruct ,type-ptr))
                     type-ptr-lst)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun ref-shared-ptr-reader (stream &rest rest)
+    (declare (ignore rest))
+    (let ((sym (read stream)))
+      `(ref-shared-ptr ,sym)))
+  (defun shared-ptr-ptr-reader (stream &rest rest)
+    (declare (ignore rest))
+    (let ((sym (read stream)))
+      `(shared-ptr-ptr ,sym))))
+
+(defmacro enable-syntax ()
+  '(eval-when (:compile-toplevel :load-toplevel :execute)
+    (make-dispatch-macro-character #\$)
+    (set-dispatch-macro-character #\$ #\& #'ref-shared-ptr-reader)
+    (set-dispatch-macro-character #\$ #\* #'shared-ptr-ptr-reader)))
+
+(enable-syntax)
+
 (defun.wat test-shared-ptr1 () ()
   (let (((temp1 i32) (new-shared-ptr
                       (new-i32 (i32.const 100))))
         ((temp2 i32) (new-shared-ptr
                        (new-i32 (i32.const 200)))))
     (with-destruct (temp1 temp2)
-      (print-typed (ref-shared-ptr temp2))
+      (print-typed $&temp2)
       (set-local-shared-ptr temp2 temp1)
       (log (i32.const 111111))
-      (print-typed (ref-shared-ptr temp1))
-      (print-typed (ref-shared-ptr temp2))
+      (print-typed $&temp1)
+      (print-typed $&temp2)
       (log (i32.const 111222)))
     (log (i32.const 111333))))
 
@@ -462,20 +480,20 @@
                             (new-i32 (i32.const 2)))))
     (with-destruct (lst)
       (log (i32.const 222111))
-      (print-typed (ref-shared-ptr lst)))
+      (print-typed $&lst))
     (log (i32.const 222222))))
 
 (defun.wat test-shared-ptr3-called ((sp i32)) ()
   (with-destruct (sp)
     (log (i32.const 333999))
-    (print-typed (ref-shared-ptr sp)))
+    (print-typed $&sp))
   (log (i32.const 333888)))
 
 (defun.wat test-shared-ptr3 () ()
   (let (((sp i32) (new-shared-ptr (new-i32 (i32.const 1)))))
     (with-destruct (sp)
       (log (i32.const 333111))
-      (test-shared-ptr3-called (ref-shared-ptr sp))
+      (test-shared-ptr3-called $&sp)
       (log (i32.const 333222)))
     (log (i32.const 333333))))
 
