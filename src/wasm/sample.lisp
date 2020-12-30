@@ -97,6 +97,16 @@
 (defun.wat get-pointer-size ((ptr i32)) (i32)
   (load-i32 (i32- ptr 1)))
 
+;; mainly for test
+(defun.wat no-memory-allocated-p () (i32)
+  (let (((expected-head i32) (i32.const 2))
+        ((result i32) (i32.const 0)))
+    (when (i32.eq (load-i32 (get-global-memory-head))
+                  expected-head)
+      (when (last-empty-head-p expected-head)
+        (set-local result (i32.const 1))))
+    (get-local result)))
+
 ;; - malloc - ;;
 
 (defun.wat malloc-rec ((size i32) (prev-head i32) (head i32)) (i32)
@@ -373,10 +383,10 @@
                                (new-i32 (i32.const 30)))))
     (print-typed lst)
     ;; free
-    (log (load-i32 (get-global-memory-head))) ; expect not 2
+    (log (no-memory-allocated-p)) ; expect 0
     (free-typed simple-cons)
     (free-typed lst)
-    (log (load-i32 (get-global-memory-head))) ; expect 2
+    (log (no-memory-allocated-p)) ; expect 1
     ))
 
 (defexport.wat test-list (func test-list))
@@ -502,7 +512,7 @@
     (test-shared-ptr1)
     (test-shared-ptr2)
     (test-shared-ptr3))
-  (log (load-i32 (get-global-memory-head))) ; expect 2
+  (log (no-memory-allocated-p)) ; expect 1
   )
 
 (defexport.wat test-shared-ptr (func test-shared-ptr))
