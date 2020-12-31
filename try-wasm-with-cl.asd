@@ -16,8 +16,6 @@
   :license "MIT"
   :depends-on (:parenscript
                :ps-experiment
-               :cl-ps-ecs
-               :cl-web-2d-game
                :ningle
                :cl-markup
                :clack
