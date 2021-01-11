@@ -5,7 +5,7 @@
            :ps2js)
   (:import-from :try-wasm-with-cl/src/js/main
                 :main)
-  (:import-from :try-wasm-with-cl/wa/main
+  (:import-from :watson
                 :generate-wat-module)
   (:import-from :ps-experiment
                 :with-use-ps-pack)
@@ -19,7 +19,8 @@
                        :if-exists :supersede
                        :if-does-not-exist :create)
     (let ((*print-pretty* t))
-      (princ (generate-wat-module)
+      (princ (generate-wat-module
+              (find-package (symbol-name :try-wasm-with-cl/src/wasm/sample)))
              out))))
 
 (defun wat2wasm (wat-path wasm-path)

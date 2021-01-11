@@ -1,11 +1,12 @@
 ("quicklisp" .
- (:class qlot.source.ql:source-ql-all
+ (:class qlot/source/dist:source-dist
   :initargs (:distribution "http://beta.quicklisp.org/dist/quicklisp.txt" :%version :latest)
-  :version "2020-10-16"))
+  :version "2020-12-20"))
 ("ps-experiment" .
- (:class qlot.source.github:source-github
-  :initargs (:project-name "ps-experiment" :repos "eshamster/ps-experiment" :ref nil :branch nil :tag nil)
-  :version "github-4aeaf87d0f08a4fcac6f190c2c809d14b094a7e5"
-  :repos "eshamster/ps-experiment"
-  :url "https://github.com/eshamster/ps-experiment/archive/4aeaf87d0f08a4fcac6f190c2c809d14b094a7e5.tar.gz"
-  :ref "4aeaf87d0f08a4fcac6f190c2c809d14b094a7e5"))
+ (:class qlot/source/github:source-github
+  :initargs (:repos "eshamster/ps-experiment" :ref nil :branch nil :tag nil)
+  :version "github-c877807b8db716c806fdcfec5840df08"))
+("watson" .
+ (:class qlot/source/github:source-github
+  :initargs (:repos "eshamster/watson" :ref nil :branch nil :tag nil)
+  :version "github-4ed085c398e451d9af28c33e29057717"))

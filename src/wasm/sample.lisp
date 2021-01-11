@@ -1,6 +1,6 @@
 (defpackage :try-wasm-with-cl/src/wasm/sample
   (:use #:cl)
-  (:import-from #:try-wasm-with-cl/wa/main
+  (:import-from #:watson
                 #:defmacro.wat
                 #:defun.wat
                 #:defimport.wat
@@ -14,6 +14,8 @@
                 #:for
                 #:i32+
                 #:i32-
+
+                #:i32
 
                 #:i32.const
                 #:i32.add
