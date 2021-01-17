@@ -568,7 +568,7 @@
 
 (defun.wat test-global () ()
   (set-global g (i32.const 99))
-  (log (get-global g)))
+  (log g))
 
 ;; factorial
 (defun.wat test-rec ((x i32)) (i32)

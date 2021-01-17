@@ -9,4 +9,4 @@
 ("watson" .
  (:class qlot/source/github:source-github
   :initargs (:repos "eshamster/watson" :ref nil :branch nil :tag nil)
-  :version "github-4ed085c398e451d9af28c33e29057717"))
+  :version "github-e237d1bccbf03787fee9314af0270002"))
