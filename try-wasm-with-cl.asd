@@ -20,6 +20,7 @@
                :cl-markup
                :clack
                :cl-ppcre
+               :flexi-streams
                :try-wasm-with-cl/main)
   :description "try-wasm-with-cl is a sample project for WASM with Common Lisp."
   :long-description

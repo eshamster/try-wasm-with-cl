@@ -27,16 +27,20 @@
                 #:i32.ge-u
                 #:i32.gt-u
                 #:i32.store
+                #:i32.store8
                 #:i32.load
                 #:get-local
                 #:set-local
                 #:get-global
                 #:set-global)
   (:import-from #:alexandria
-                #:symbolicate))
+                #:symbolicate)
+  (:import-from #:flexi-streams
+                #:string-to-octets))
 (in-package :try-wasm-with-cl/src/wasm/sample)
 
 (defimport.wat log console.log (func ((i32))))
+(defimport.wat logs console.logs (func ((i32) (i32))))
 (defimport.wat mem js.mem (memory 1))
 
 (defglobal.wat g js.global (mut i32))
@@ -260,6 +264,36 @@
     ))
 
 (defexport.wat test-memory (func test-mem-process))
+
+;; --- log string --- ;;
+
+(defmacro.wat log-string (text var-ptr)
+  (unless (stringp text)
+    (error "input should be string. got: ~A" text))
+  ;; Note:
+  ;; - logs/i32.store8 use memory by 8bit
+  ;; - malloc use memory by 32bit
+  (let* ((octets (string-to-octets text :external-format :utf-8))
+         (alloc-size (ceiling (/ (length octets) 4))))
+    `(progn (set-local ,var-ptr (malloc (i32.const ,alloc-size)))
+            ,@(loop :for i :from 0 :below (length octets)
+                    :collect `(i32.store8 (i32.add (i32.mul ,var-ptr
+                                                           (i32.const 4))
+                                                  (i32.const ,i))
+                                         (i32.const ,(aref octets i))))
+            (logs (i32.mul ,var-ptr (i32.const 4))
+                  (i32.const ,(length octets)))
+            (free ,var-ptr))))
+
+(defun.wat test-log-string () ()
+  (let ((ptr i32))
+    (init-memory)
+    (log-string "testaaaaa" ptr)
+    (log-string "|斑|鳩|" ptr))
+  (log (last-empty-head-p (i32.const 2))) ; expect 1
+  )
+
+(defexport.wat test-log-string (func test-log-string))
 
 ;; --- deftype.wat --- ;;
 
@@ -580,6 +614,13 @@
                (set-local result)))
     (get-local result)))
 
+(defun.wat test-simple-log-string () ()
+  (i32.store8 (i32.const 0) (i32.const 227))
+  (i32.store8 (i32.const 1) (i32.const 129))
+  (i32.store8 (i32.const 2) (i32.const 130))
+  (i32.store8 (i32.const 3) (i32.const 97))
+  (logs (i32.const 0) (i32.const 4)))
+
 (defun.wat test-print () ()
   (log (sample (i32.const 300)))
   (test-if (i32.const 0))
@@ -593,6 +634,7 @@
   (test-plus (i32.const 100))
   (test-memory)
   (test-global)
-  (log (test-rec (i32.const 5))))
+  (log (test-rec (i32.const 5)))
+  (test-simple-log-string))
 
 (defexport.wat exported-func (func test-print))
