@@ -40,5 +40,7 @@
                      (results.instance.exports.test_list)
                      (console.log "--- call test_log_string ---")
                      (results.instance.exports.test_log_string)
+                     (console.log "--- call test_dump_memory ---")
+                     (results.instance.exports.test_dump_memory)
                      (console.log "--- call test_shared_ptr ---")
                      (results.instance.exports.test_shared_ptr)))))))

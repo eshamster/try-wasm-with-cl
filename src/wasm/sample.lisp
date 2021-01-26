@@ -26,6 +26,7 @@
                 #:i32.eqz
                 #:i32.ge-u
                 #:i32.gt-u
+                #:i32.lt-u
                 #:i32.store
                 #:i32.store8
                 #:i32.load
@@ -294,6 +295,69 @@
   )
 
 (defexport.wat test-log-string (func test-log-string))
+
+;; --- dump memory --- ;;
+
+(defun.wat dump-empty-memory ((head i32)) ()
+  (let ((tmp-for-log i32))
+    (log-string "Empty(head,size):" tmp-for-log)
+    (log head)
+    (unless (last-empty-head-p head)
+      (log (get-empty-memory-size head)))))
+
+(defun.wat dump-allocated-memory ((ptr i32)) ()
+  (let (((size i32) (get-pointer-size ptr))
+        (i i32)
+        (tmp-for-log i32))
+    (log-string "Alloc(ptr,size,data...)" tmp-for-log)
+    (log ptr)
+    (log size)
+    (for f (:init (set-local i (i32.const 0))
+            :break (i32.ge-u i size)
+            :mod (set-local i (i32+ i (i32.const 1))))
+         (log (load-i32 (i32+ ptr i))))))
+
+(defun.wat dump-allocated-memory-rec ((ptr i32) (next-head i32)) ()
+  (let (((next-offset i32) (i32+ ptr (get-pointer-size ptr))))
+    (dump-allocated-memory ptr)
+    (when (i32.lt-u next-offset next-head)
+      (dump-allocated-memory-rec (i32+ next-offset (get-header-size))
+                                 next-head))))
+
+(defun.wat dump-memory-rec ((head i32)) ()
+  (let ((ptr i32)
+        (next-head i32))
+    (dump-empty-memory head)
+    (unless (last-empty-head-p head)
+      (set-local ptr (i32+ head
+                           (get-empty-memory-size head)
+                           (i32.const 1)
+                           (get-header-size)))
+      (set-local next-head (get-next-head head))
+      (dump-allocated-memory-rec ptr next-head)
+      (dump-memory-rec next-head))))
+
+(defun.wat dump-memory () ()
+  (let (((next-offset i32) (i32+ (get-global-memory-head) 1))
+        ((next-head i32) (get-next-head (get-global-memory-head)))
+        (tmp-for-log i32))
+    (unless (i32.eq next-head next-offset)
+      (dump-allocated-memory-rec (i32+ next-offset (get-header-size))
+                                 next-head))
+    (dump-memory-rec next-head)
+    (log-string "--- End ---" tmp-for-log)))
+
+(defun.wat test-dump-memory () ()
+  (let ((ptr1 i32)
+        (ptr2 i32))
+    (init-memory)
+    (set-local ptr1 (malloc (i32.const 4)))
+    (set-local ptr2 (malloc (i32.const 5)))
+    (free ptr1)
+    (dump-memory)
+    (init-memory)))
+
+(defexport.wat test-dump-memory (func test-dump-memory))
 
 ;; --- deftype.wat --- ;;
 
