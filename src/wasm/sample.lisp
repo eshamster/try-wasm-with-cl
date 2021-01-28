@@ -73,6 +73,9 @@
 (defun.wat get-null-ptr () (i32)
   (i32.const 0))
 
+(defun.wat null-ptr-p ((ptr i32)) (i32)
+  (i32.eq ptr (i32.const 0)))
+
 (defun.wat get-global-memory-head () (i32)
   (i32.const 1))
 
@@ -444,12 +447,19 @@
     (get-local result)))
 
 (defun.wat free-typed ((type-ptr i32)) ()
-  (cond ((i32-p type-ptr) (free-i32 type-ptr))
-        ((cons-cell-p type-ptr) (free-cons-cell type-ptr))
-        ((shared-ptr-p type-ptr) (deref-shared-ptr type-ptr))))
+  (let ((tmp-for-log i32))
+    (cond ((null-ptr-p type-ptr) ; do nothing
+           )
+          ((i32-p type-ptr) (free-i32 type-ptr))
+          ((cons-cell-p type-ptr) (free-cons-cell type-ptr))
+          ((shared-ptr-p type-ptr) (deref-shared-ptr type-ptr))
+          ((symbol-p type-ptr) (free-symbol type-ptr))
+          (t (log-string "Can't free type: " tmp-for-log)
+             (log (get-type type-ptr))))))
 
 (defun.wat print-typed-rec ((type-ptr i32)) ()
-  (let ((temp i32))
+  (let ((temp i32)
+        (tmp-for-log i32))
     (cond ((i32.eqz type-ptr))
           ((i32-p type-ptr)
            (log (get-i32 type-ptr)))
@@ -458,7 +468,9 @@
            (print-typed-rec (cdr type-ptr)))
           ((shared-ptr-p type-ptr)
            ;; Without destruct
-           (print-typed-rec (shared-ptr-ptr type-ptr))))))
+           (print-typed-rec (shared-ptr-ptr type-ptr)))
+          (t (log-string "Can't print type: " tmp-for-log)
+             (log (get-type type-ptr))))))
 
 (defun.wat print-typed ((type-ptr i32)) ()
   (cond ((shared-ptr-p type-ptr)
@@ -503,6 +515,9 @@
                ptr)
     (get-local result)))
 
+(defmacro.wat sp (ptr)
+  `(new-shared-ptr ,ptr))
+
 (defun.wat ref-shared-ptr ((shared-ptr i32)) (i32)
   (let (((ref-count i32) (shared-ptr-ref-count shared-ptr)))
     (set-shared-ptr-ref-count shared-ptr
@@ -510,10 +525,12 @@
     (get-local shared-ptr)))
 
 (defun.wat deref-shared-ptr ((shared-ptr i32)) ()
-  (let (((ref-count i32) (shared-ptr-ref-count shared-ptr)))
+  (let (((ref-count i32) (shared-ptr-ref-count shared-ptr))
+        (tmp-for-log i32))
     (if (i32.eq ref-count (i32.const 1))
         (progn (when (debug-p)
-                 (log (i32.const 9999999)))
+                 (log-string "free: " tmp-for-log)
+                 (log shared-ptr))
                (free-typed (shared-ptr-ptr shared-ptr))
                (free shared-ptr))
         (set-shared-ptr-ref-count shared-ptr
@@ -616,6 +633,80 @@
   )
 
 (defexport.wat test-shared-ptr (func test-shared-ptr))
+
+;; --- list interpreter --- ;;
+
+(deftype.wat symbol 91 1)
+
+(defun.wat new-symbol ((value i32)) (i32)
+  (let (((ptr i32) (make-i32)))
+    (set-i32 ptr value)
+    (get-local ptr)))
+
+(defun.wat free-symbol ((ptr i32)) ()
+  (free ptr))
+
+(defun.wat get-symbol-id ((symbol-ptr i32)) (i32)
+  (load-i32 (get-type-data-offset symbol-ptr)))
+
+(defun.wat car.sp ((s-ptr i32)) (i32)
+  (car $*s-ptr))
+
+(defun.wat cdr.sp ((s-ptr i32)) (i32)
+  $*(cdr $*s-ptr))
+
+(defun.wat atom.sp ((s-ptr i32)) (i32)
+  (atom $*s-ptr))
+
+(defun.wat interpret-list ((s-ptr i32)) (i32)
+  (let (((head i32) $&(car.sp s-ptr))
+        ((rest i32) $&(cdr.sp s-ptr))
+        (result i32)
+        (symbol-id i32)
+        (tmp-for-log i32))
+    (with-destruct (s-ptr head rest)
+      (cond ((symbol-p $*head)
+             (set-local symbol-id (get-symbol-id $*head))
+             (cond (; atom
+                    (i32.eq symbol-id (i32.const 1))
+                    (set-local result
+                               (sp (new-i32 (atom.sp (interpret $&(car.sp rest)))))))))
+            (t (log-string "ERROR: head type: " tmp-for-log)
+               (log (get-type $*head)))))
+    (get-local result)))
+
+(defun.wat interpret ((s-ptr i32)) (i32)
+  (let ((result i32))
+    (with-destruct (s-ptr result)
+      (cond ((atom $*s-ptr)
+             (set-local result $&s-ptr))
+            (t (set-local result $&(interpret-list $&s-ptr)))))
+    (get-local result)))
+
+(defun.wat test-list-interpreter () ()
+  (let ((tmp i32)
+        (result i32)
+        (tmp-for-log i32))
+    (init-memory)
+    (with-debug
+      (log-string "- 111" tmp-for-log)
+      (with-destruct (tmp result)
+        (set-local tmp (sp (new-i32 (i32.const 111))))
+        (set-local result (interpret $&tmp))
+        (print-typed result))
+      (log (no-memory-allocated-p)) ; expect 1
+
+      (log-string "- (atom 10)" tmp-for-log)
+      (with-destruct (tmp result)
+        (set-local tmp (cons.sp (new-symbol (i32.const 1))
+                                (cons.sp (new-i32 (i32.const 10))
+                                         (get-null-ptr))))
+        (set-local result (interpret $&tmp))
+        (print-typed result)))
+    (log (no-memory-allocated-p)) ; expect 1
+    ))
+
+(defexport.wat test-list-interpreter (func test-list-interpreter))
 
 ;; --- --- ;;
 
