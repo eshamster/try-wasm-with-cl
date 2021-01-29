@@ -687,6 +687,10 @@
                     (i32.eq symbol-id (i32.const 3))
                     (set-local tmp1 (interpret $&(car.sp rest)))
                     (set-local result $&(car.sp tmp1)))
+                   (; 4: cdr
+                    (i32.eq symbol-id (i32.const 4))
+                    (set-local tmp1 (interpret $&(car.sp rest)))
+                    (set-local result $&(cdr.sp tmp1)))
                    (; 101: quote
                     (i32.eq symbol-id (i32.const 101))
                     (set-local result $&(car.sp rest)))))
@@ -743,13 +747,23 @@
         (print-typed $&result)) ;; expect 0
       (log (no-memory-allocated-p)) ; expect 1
 
-      (log-string "- (car (quote (1 2)))" tmp-for-log)
+      (log-string "- (car (quote (100 200)))" tmp-for-log)
       (with-destruct (tmp result)
         (set-local tmp (list.sp (new-symbol (i32.const 3))
                                 (list.sp (new-symbol (i32.const 101))
                                          (list.sp (new-i32 (i32.const 100))
                                                   (new-i32 (i32.const 200))))))
         (set-local result (interpret $&tmp)) ;; expect 100
+        (print-typed $&result))
+      (log (no-memory-allocated-p)) ; expect 1
+
+      (log-string "- (cdr (quote (100 . 200)))" tmp-for-log)
+      (with-destruct (tmp result)
+        (set-local tmp (list.sp (new-symbol (i32.const 4))
+                                (list.sp (new-symbol (i32.const 101))
+                                         (cons.sp (new-i32 (i32.const 100))
+                                                  (new-i32 (i32.const 200))))))
+        (set-local result (interpret $&tmp)) ;; expect 200
         (print-typed $&result))
       (log (no-memory-allocated-p)) ; expect 1
       )))
