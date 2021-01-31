@@ -716,6 +716,11 @@
                     (i32.eq symbol-id (i32.const 4))
                     (set-local tmp1 (interpret $&(car.sp rest)))
                     (set-local result $&(cdr.sp tmp1)))
+                   (; 5: cons
+                    (i32.eq symbol-id (i32.const 5))
+                    (set-local tmp1 (interpret $&(car.sp rest)))
+                    (set-local tmp2 (interpret $&(car.sp (cdr.sp rest))))
+                    (set-local result (cons.sp $&tmp1 $&tmp2)))
                    (; 101: quote
                     (i32.eq symbol-id (i32.const 101))
                     (set-local result $&(car.sp rest)))))
@@ -736,13 +741,13 @@
         (result i32)
         (tmp-for-log i32))
     (init-memory)
-    (progn ; with-debug
+    (progn                              ; with-debug
       (log-string "- 111" tmp-for-log)
       (with-destruct (tmp result)
         (set-local tmp (sp (new-i32 (i32.const 111))))
         (set-local result (interpret $&tmp))
         (print-typed $&result))
-      (log (no-memory-allocated-p)) ; expect 1
+      (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (atom 10)" tmp-for-log)
       (with-destruct (tmp result)
@@ -750,7 +755,7 @@
                                 (new-i32 (i32.const 10))))
         (set-local result (interpret $&tmp))
         (print-typed $&result))
-      (log (no-memory-allocated-p)) ; expect 1
+      (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (eq 10 10)" tmp-for-log)
       (with-destruct (tmp result)
@@ -758,8 +763,8 @@
                                 (new-i32 (i32.const 10))
                                 (new-i32 (i32.const 10))))
         (set-local result (interpret $&tmp))
-        (print-typed $&result)) ; expect 1
-      (log (no-memory-allocated-p)) ; expect 1
+        (print-typed $&result))         ; expect 1
+      (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (eq 10 20)" tmp-for-log)
       (with-destruct (tmp result)
@@ -767,8 +772,8 @@
                                 (new-i32 (i32.const 10))
                                 (new-i32 (i32.const 20))))
         (set-local result (interpret $&tmp))
-        (print-typed $&result)) ; expect 0
-      (log (no-memory-allocated-p)) ; expect 1
+        (print-typed $&result))         ; expect 0
+      (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (quote (1 2))" tmp-for-log)
       (with-destruct (tmp result)
@@ -778,7 +783,7 @@
         (set-local result (interpret $&tmp))
         (print-typed $&(car.sp result))
         (print-typed $&(cdr.sp result)))
-      (log (no-memory-allocated-p)) ; expect 1
+      (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (atom (quote (1 2)))" tmp-for-log)
       (with-destruct (tmp result)
@@ -787,7 +792,7 @@
                                          (list.sp (new-i32 (i32.const 100))
                                                   (new-i32 (i32.const 200))))))
         (set-local result (interpret $&tmp))
-        (print-typed $&result)) ;; expect 0
+        (print-typed $&result))     ;; expect 0
       (log (no-memory-allocated-p)) ; expect 1
 
       (log-string "- (car (quote (100 . 200)))" tmp-for-log)
@@ -798,7 +803,7 @@
                                                   (new-i32 (i32.const 200))))))
         (set-local result (interpret $&tmp)) ;; expect 100
         (print-typed $&result))
-      (log (no-memory-allocated-p)) ; expect 1
+      (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (cdr (quote (100 . 200)))" tmp-for-log)
       (with-destruct (tmp result)
@@ -808,7 +813,17 @@
                                                   (new-i32 (i32.const 200))))))
         (set-local result (interpret $&tmp)) ;; expect 200
         (print-typed $&result))
-      (log (no-memory-allocated-p)) ; expect 1
+      (log (no-memory-allocated-p))     ; expect 1
+
+      (log-string "- (car (cons 100 200)))" tmp-for-log)
+      (with-destruct (tmp result)
+        (set-local tmp (list.sp (new-symbol (i32.const 3))
+                                (list.sp (new-symbol (i32.const 5))
+                                         (new-i32 (i32.const 100))
+                                         (new-i32 (i32.const 200)))))
+        (set-local result (interpret $&tmp)) ;; expect 100
+        (print-typed $&result))
+      (log (no-memory-allocated-p))     ; expect 1
       )))
 
 (defexport.wat test-list-interpreter (func test-list-interpreter))
