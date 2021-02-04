@@ -454,6 +454,8 @@
           ((cons-cell-p type-ptr) (free-cons-cell type-ptr))
           ((shared-ptr-p type-ptr) (deref-shared-ptr type-ptr))
           ((symbol-p type-ptr) (free-symbol type-ptr))
+          ((env-p type-ptr) (free-env type-ptr))
+          ((var-cell-p type-ptr) (free-var-cell type-ptr))
           (t (log-string "Can't free type: " tmp-for-log)
              (log (get-type type-ptr))))))
 
@@ -486,6 +488,8 @@
                (set-local result
                           (i32.eq (get-i32 type-ptr1)
                                   (get-i32 type-ptr2))))
+              ((symbol-p type-ptr1)
+               (set-local result (eq-symbol type-ptr1 type-ptr2)))
               ((shared-ptr-p type-ptr1)
                (with-destruct (type-ptr1 type-ptr2)
                  (set-local result
@@ -662,6 +666,176 @@
 
 (defexport.wat test-shared-ptr (func test-shared-ptr))
 
+;; --- env --- ;;
+
+;; TODO: consider to use shared ptr instead of raw pointer
+
+;; - env - ;;
+
+;; env has a list of scope.
+;; scope has a list of var-cell.
+;; var-cell has pair of symbol and value.
+(deftype.wat env 1 201)
+
+(defun.wat new-env () (i32)
+  (let (((ptr i32) (make-env)))
+    (store-i32 (get-type-data-offset ptr)
+               (get-null-ptr))
+    (get-local ptr)))
+
+(defun.wat add-variable-to-env ((env i32) (symbol i32) (value i32)) ()
+  (if (empty-env-p env)
+      (store-i32 (get-type-data-offset env)
+                 (new-var-cell symbol value))
+      (add-var-cell (get-head-var-cell env) symbol value)))
+
+(defun.wat get-symbol-value ((env i32) (symbol i32)) (i32)
+  (let ((var-cell i32)
+        (result i32)
+        (tmp-for-log i32))
+    (cond ((empty-env-p env)
+           (set-local result (get-null-ptr)))
+          (t (set-local var-cell
+                        (find-var-cell-by-symbol (get-head-var-cell env)
+                                                 symbol))
+             (if (null-ptr-p var-cell)
+                 (set-local result (get-null-ptr))
+                 (set-local result (get-var-cell-value* var-cell)))))
+    (get-local result)))
+
+(defun.wat get-head-var-cell ((env i32)) (i32)
+  (load-i32 (get-type-data-offset env)))
+
+(defun.wat empty-env-p ((env i32)) (i32)
+  (null-ptr-p (get-head-var-cell env)))
+
+(defun.wat free-env ((env i32)) ()
+  (unless (empty-env-p env)
+    (free-var-cell (get-head-var-cell env)))
+  (free env))
+
+;; - scope - ;;
+
+(deftype.wat scope 1 202)
+
+;; - var-cell - ;;
+
+;; (variable-ptr value-ptr next-var-cell-ptr)
+(deftype.wat var-cell 3 203)
+
+(defun.wat new-var-cell ((s-symbol i32) (s-value i32)) (i32)
+  (let (((ptr i32) (make-var-cell)))
+    (with-destruct (s-symbol s-value)
+      (store-i32 (get-type-data-offset ptr)
+                 $&s-symbol)
+      (store-i32 (i32+ (get-type-data-offset ptr) 1)
+                 $&s-value)
+      (store-i32 (i32+ (get-type-data-offset ptr) 2)
+                 (sp (get-null-ptr))))
+    (sp (get-local ptr))))
+
+(defun.wat add-var-cell ((var-cell i32) (new-symbol i32) (new-value i32)) ()
+  (let (((symbol i32) $&(get-var-cell-symbol* $*var-cell))
+        (old i32))
+    (with-destruct (var-cell new-symbol new-value symbol old)
+      (cond ((eq-symbol $*symbol $*new-symbol)
+             (set-local old (get-var-cell-value* $*var-cell))
+             (set-var-cell-value $&var-cell $&new-value))
+            ((next-var-cell-exist-p* $*var-cell)
+             (add-var-cell $&(get-var-cell-next* $*var-cell)
+                           $&new-symbol
+                           $&new-value))
+            (t (set-var-cell-next $&var-cell
+                                  $&(new-var-cell $&new-symbol $&new-value)))))))
+
+(defun.wat find-var-cell-by-symbol ((var-cell i32) (symbol i32)) (i32)
+  (let ((result i32))
+    (with-destruct (var-cell symbol)
+      (cond ((eq-symbol $*(get-var-cell-symbol* $*var-cell) $*symbol)
+             (set-local result $&var-cell))
+            ((next-var-cell-exist-p* $*var-cell)
+             (set-local result
+                        (find-var-cell-by-symbol $&(get-var-cell-next* $*var-cell)
+                                                 $&symbol)))
+            (t (set-local result (sp (get-null-ptr))))))
+    (get-local result)))
+
+(defun.wat get-var-cell-symbol* ((ptr i32)) (i32)
+  (load-i32 (get-type-data-offset ptr)))
+
+(defun.wat get-var-cell-value* ((ptr i32)) (i32)
+  (load-i32 (i32+ (get-type-data-offset ptr) 1)))
+
+(defun.wat set-var-cell-value ((s-ptr i32) (s-value i32)) ()
+  (with-destruct (s-ptr s-value)
+    (store-i32 (i32+ (get-type-data-offset $*s-ptr) 1)
+               $&s-value)))
+
+(defun.wat get-var-cell-next* ((ptr i32)) (i32)
+  (load-i32 (i32+ (get-type-data-offset ptr) 2)))
+
+(defun.wat set-var-cell-next ((s-ptr i32) (next-ptr i32)) ()
+  (let ((old i32))
+    (with-destruct (s-ptr next-ptr old)
+      (set-local old (get-var-cell-next* $*s-ptr))
+      (store-i32 (i32+ (get-type-data-offset $*s-ptr) 2)
+                 next-ptr))))
+
+(defun.wat next-var-cell-exist-p* ((ptr i32)) (i32)
+  (let ((result i32))
+    (if (null-ptr-p $*(get-var-cell-next* ptr))
+        (set-local result (i32.const 0))
+        (set-local result (i32.const 1)))
+    (get-local result)))
+
+(defun.wat free-var-cell ((ptr i32)) ()
+  (free-typed (get-var-cell-next* ptr))
+  (free-typed (get-var-cell-symbol* ptr))
+  (free-typed (get-var-cell-value* ptr))
+  (free ptr))
+
+;; - test - ;;
+
+(defun.wat new-test-var-cell ((symbol-id i32) (i32-value i32)) (i32)
+  (new-var-cell (sp (new-symbol symbol-id))
+                (sp (new-i32 i32-value))))
+
+(defun.wat test-env () ()
+  (let ((tmp i32)
+        (res1 i32)
+        (res2 i32)
+        (res3 i32)
+        (tmp-for-log i32))
+    (init-memory)
+    (log-string "- var-cell -" tmp-for-log)
+    (with-destruct (tmp res1 res2 res3)
+      (set-local tmp (new-test-var-cell (i32.const 1) (i32.const 10)))
+      ;; add
+      (add-var-cell $&tmp
+                    (sp (new-symbol (i32.const 2)))
+                    (sp (new-i32 (i32.const 20))))
+      ;; overwrite
+      (add-var-cell $&tmp
+                    (sp (new-symbol (i32.const 2)))
+                    (sp (new-i32 (i32.const 30))))
+      ;; check1
+      (set-local res1 (find-var-cell-by-symbol
+                       $&tmp (sp (new-symbol (i32.const 1)))))
+      (log (get-i32 $*(get-var-cell-value* $*res1))) ; expect 10
+      ;; check2
+      (set-local res2 (find-var-cell-by-symbol
+                          $&tmp (sp (new-symbol (i32.const 2)))))
+      (log (get-i32 $*(get-var-cell-value* $*res2))) ; expect 30
+      ;; check3
+      (set-local res3 (find-var-cell-by-symbol
+                       $&tmp (sp (new-symbol (i32.const 3)))))
+      (log (null-ptr-p $*res3)) ; expect 1
+      )
+    (log (no-memory-allocated-p)) ; expect 1
+    ))
+
+(defexport.wat test-env (func test-env))
+
 ;; --- list interpreter --- ;;
 
 (deftype.wat symbol 1 91)
@@ -676,6 +850,10 @@
 
 (defun.wat get-symbol-id ((symbol-ptr i32)) (i32)
   (load-i32 (get-type-data-offset symbol-ptr)))
+
+(defun.wat eq-symbol ((ptr1 i32) (ptr2 i32)) (i32)
+  (i32.eq (get-symbol-id ptr1)
+          (get-symbol-id ptr2)))
 
 (defun.wat car.sp ((s-ptr i32)) (i32)
   (car $*s-ptr))
