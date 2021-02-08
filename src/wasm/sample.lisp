@@ -455,6 +455,7 @@
           ((shared-ptr-p type-ptr) (deref-shared-ptr type-ptr))
           ((symbol-p type-ptr) (free-symbol type-ptr))
           ((env-p type-ptr) (free-env type-ptr))
+          ((scope-p type-ptr) (free-scope type-ptr))
           ((var-cell-p type-ptr) (free-var-cell type-ptr))
           (t (log-string "Can't free type: " tmp-for-log)
              (log (get-type type-ptr))))))
@@ -668,8 +669,6 @@
 
 ;; --- env --- ;;
 
-;; TODO: consider to use shared ptr instead of raw pointer
-
 ;; - env - ;;
 
 ;; env has a list of scope.
@@ -715,8 +714,102 @@
   (free env))
 
 ;; - scope - ;;
+;; scope is a stack of list of var-cell
 
-(deftype.wat scope 1 202)
+;; (head-var-cell-ptr prev-scope)
+(deftype.wat scope 2 202)
+
+(defun.wat new-scope () (i32)
+  (let (((ptr i32) (make-scope)))
+    (store-i32 (get-type-data-offset ptr) (i32.const 0))
+    (store-i32 (i32+ (get-type-data-offset ptr) 1) (i32.const 0))
+    (sp ptr)))
+
+(defun.wat push-scope ((scope i32) (new-scope i32)) (i32)
+  ;; return new top scope on stack
+  (let ((result i32))
+    (with-destruct (scope new-scope)
+      (set-prev-scope $&new-scope $&scope)
+      (set-local result $&new-scope))
+    (get-local result)))
+
+(defun.wat pop-scope ((scope i32)) (i32)
+  ;; return new top scope on stack
+  (let ((old i32)
+        (tmp-for-log i32)
+        (result i32))
+    (with-destruct (scope old)
+      (if (global-scope-p* $*scope)
+          (log-string "Can't pop global scope" tmp-for-log)
+          (progn (set-local result $&(get-prev-scope* $*scope))
+                 (set-local old scope)))
+      (get-local result))))
+
+(defun.wat get-symbol-value-in-scope ((scope i32) (symbol i32)) (i32)
+  (let ((result i32)
+        (tmp i32)
+        (tmp-for-log i32))
+    (with-destruct (scope symbol tmp)
+      (cond ((empty-scope-p* $*scope)
+             (if (global-scope-p* $*scope)
+                 (progn (log-string "symbol doesn't have value: " tmp-for-log)
+                        (log (get-symbol-id $*symbol))
+                        (set-local result (sp (get-null-ptr))))
+                 (set-local result
+                            (get-symbol-value-in-scope
+                             $&(get-prev-scope* $*scope) $&symbol))))
+            (t (set-local tmp (find-var-cell-by-symbol
+                               $&(get-scope-head-var-cell* $*scope)
+                               $&symbol))
+               (if (null-ptr-p $*tmp)
+                   (if (global-scope-p* $*scope)
+                       (progn (log-string "symbol doesn't have value: " tmp-for-log)
+                              (log (get-symbol-id $*symbol))
+                              (set-local result (sp (get-null-ptr))))
+                       (set-local result
+                                  (get-symbol-value-in-scope
+                                   $&(get-prev-scope* $*scope) $&symbol)))
+                   (set-local result (get-var-cell-value* $*tmp))))))
+    (get-local result)))
+
+(defun.wat add-var-cell-to-scope ((scope i32) (new-symbol i32) (new-value i32)) ()
+  (with-destruct (scope new-symbol new-value)
+    (if (empty-scope-p* $*scope)
+        (set-scope-head-var-cell $&scope
+                                 (new-var-cell $&new-symbol $&new-value))
+        (add-var-cell $&(get-scope-head-var-cell* $*scope)
+                      $&new-symbol
+                      $&new-value))))
+
+(defun.wat get-scope-head-var-cell* ((ptr i32)) (i32)
+  (load-i32 (get-type-data-offset ptr)))
+
+(defun.wat empty-scope-p* ((ptr i32)) (i32)
+  (null-ptr-p (get-scope-head-var-cell* ptr)))
+
+(defun.wat set-scope-head-var-cell ((scope i32) (var-cell i32)) ()
+  (with-destruct (scope var-cell)
+    (store-i32 (get-type-data-offset $*scope)
+               $&var-cell)))
+
+(defun.wat get-prev-scope* ((ptr i32)) (i32)
+  (load-i32 (i32+ (get-type-data-offset ptr) 1)))
+
+;; global scope doesn't have previous scope
+(defun.wat global-scope-p* ((ptr i32)) (i32)
+  (null-ptr-p (get-prev-scope* ptr)))
+
+(defun.wat set-prev-scope ((scope i32) (prev-scope i32)) ()
+  (with-destruct (scope prev-scope)
+    (store-i32 (i32+ (get-type-data-offset $*scope) 1)
+               $&prev-scope)))
+
+(defun.wat free-scope ((ptr i32)) ()
+  (unless (global-scope-p* ptr)
+    (free-typed (get-prev-scope* ptr)))
+  (unless (empty-scope-p* ptr)
+    (free-typed (get-scope-head-var-cell* ptr)))
+  (free ptr))
 
 ;; - var-cell - ;;
 
@@ -802,9 +895,13 @@
 
 (defun.wat test-env () ()
   (let ((tmp i32)
+        (tmp2 i32)
+        (tmp3 i32)
         (res1 i32)
         (res2 i32)
         (res3 i32)
+        (res4 i32)
+        (res5 i32)
         (tmp-for-log i32))
     (init-memory)
     (log-string "- var-cell -" tmp-for-log)
@@ -818,18 +915,62 @@
       (add-var-cell $&tmp
                     (sp (new-symbol (i32.const 2)))
                     (sp (new-i32 (i32.const 30))))
-      ;; check1
+      ;; check 1
       (set-local res1 (find-var-cell-by-symbol
                        $&tmp (sp (new-symbol (i32.const 1)))))
       (log (get-i32 $*(get-var-cell-value* $*res1))) ; expect 10
-      ;; check2
+      ;; check 2
       (set-local res2 (find-var-cell-by-symbol
                           $&tmp (sp (new-symbol (i32.const 2)))))
       (log (get-i32 $*(get-var-cell-value* $*res2))) ; expect 30
-      ;; check3
+      ;; check 3
       (set-local res3 (find-var-cell-by-symbol
                        $&tmp (sp (new-symbol (i32.const 3)))))
       (log (null-ptr-p $*res3)) ; expect 1
+      )
+    (log (no-memory-allocated-p)) ; expect 1
+
+    (log-string "- scope -" tmp-for-log)
+    (with-destruct (tmp tmp2 tmp3 res1 res2 res3 res4)
+      (set-local tmp (new-scope))
+      ;; add pair 1
+      (add-var-cell-to-scope $&tmp
+                             (sp (new-symbol (i32.const 1)))
+                             (sp (new-i32 (i32.const 10))))
+      ;; add pair 2
+      (add-var-cell-to-scope $&tmp
+                             (sp (new-symbol (i32.const 2)))
+                             (sp (new-i32 (i32.const 20))))
+      ;; check 1
+      (set-local res1 (get-symbol-value-in-scope
+                       $&tmp (sp (new-symbol (i32.const 1)))))
+      (log (get-i32 $*res1)) ; expect 10
+      ;; check 2
+      (set-local res2 (get-symbol-value-in-scope
+                       $&tmp (sp (new-symbol (i32.const 2)))))
+      (log (get-i32 $*res2)) ; expect 20
+
+      ;; new scope
+      (set-local tmp2 (push-scope $&tmp (new-scope)))
+      ;; overwrite
+      (add-var-cell-to-scope $&tmp2
+                             (sp (new-symbol (i32.const 2)))
+                             (sp (new-i32 (i32.const 200))))
+      ;; check 3
+      (set-local res3 (get-symbol-value-in-scope
+                       $&tmp2 (sp (new-symbol (i32.const 1)))))
+      (log (get-i32 $*res3)) ; expect 10
+      ;; check 4
+      (set-local res4 (get-symbol-value-in-scope
+                       $&tmp2 (sp (new-symbol (i32.const 2)))))
+      (log (get-i32 $*res4)) ; expect 200
+
+      ;; reverse to prev scope
+      (set-local tmp3 (pop-scope $&tmp2))
+      ;; check 4
+      (set-local res5 (get-symbol-value-in-scope
+                       $&tmp3 (sp (new-symbol (i32.const 2)))))
+      (log (get-i32 $*res5)) ; expect 20
       )
     (log (no-memory-allocated-p)) ; expect 1
     ))
