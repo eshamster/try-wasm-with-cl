@@ -573,13 +573,6 @@
   (load-i32 (i32+ (get-type-data-offset shared-ptr)
                   1)))
 
-(defmacro.wat set-local-shared-ptr (place shared-ptr)
-  `(progn (when (shared-ptr-p ,place)
-            (deref-shared-ptr ,place))
-          ;; Note: Use "when" to ignore return value
-          (when (ref-shared-ptr ,shared-ptr))
-          (set-local ,place ,shared-ptr)))
-
 (defun.wat destruct ((type-ptr i32)) ()
   (cond ((shared-ptr-p type-ptr)
          (deref-shared-ptr type-ptr))))
@@ -610,18 +603,20 @@
 (enable-syntax)
 
 (defun.wat test-shared-ptr1 () ()
-  (let (((temp1 i32) (new-shared-ptr
-                      (new-i32 (i32.const 100))))
-        ((temp2 i32) (new-shared-ptr
-                       (new-i32 (i32.const 200)))))
-    (with-destruct (temp1 temp2)
-      (print-typed $&temp2)
-      (set-local-shared-ptr temp2 temp1)
-      (log (i32.const 111111))
-      (print-typed $&temp1)
-      (print-typed $&temp2)
-      (log (i32.const 111222)))
-    (log (i32.const 111333))))
+  (let (((tmp1 i32) (new-shared-ptr
+                     (new-i32 (i32.const 100))))
+        ((tmp2 i32) (new-shared-ptr
+                     (new-i32 (i32.const 200))))
+        (tmp3 i32)
+        (tmp-for-log i32))
+    (with-destruct (tmp1 tmp2 tmp3)
+      (set-local tmp3 $&tmp2)
+      (log-string "func1: before print" tmp-for-log)
+      (print-typed $&tmp1)
+      (print-typed $&tmp2)
+      (print-typed $&tmp3)
+      (log-string "func1: after print" tmp-for-log))
+    (log-string "func1: after destruct" tmp-for-log)))
 
 (defun.wat cons.sp ((ptr1 i32) (ptr2 i32)) (i32)
   (new-shared-ptr
@@ -637,25 +632,29 @@
 
 (defun.wat test-shared-ptr2 () ()
   (let (((lst i32) (cons.sp (new-i32 (i32.const 1))
-                            (new-i32 (i32.const 2)))))
+                            (new-i32 (i32.const 2))))
+        (tmp-for-log i32))
     (with-destruct (lst)
-      (log (i32.const 222111))
+      (log-string "func2: before print" tmp-for-log)
       (print-typed $&lst))
-    (log (i32.const 222222))))
+    (log-string "func2: after destruct" tmp-for-log)))
 
 (defun.wat test-shared-ptr3-called ((sp i32)) ()
-  (with-destruct (sp)
-    (log (i32.const 333999))
-    (print-typed $&sp))
-  (log (i32.const 333888)))
+  (let ((tmp-for-log i32))
+    (with-destruct (sp)
+      (log-string "func3 called: before print" tmp-for-log)
+      (print-typed $&sp))
+    (log-string "func3 called: after destruct" tmp-for-log)))
 
 (defun.wat test-shared-ptr3 () ()
-  (let (((sp i32) (new-shared-ptr (new-i32 (i32.const 1)))))
+  (let (((sp i32) (new-shared-ptr (new-i32 (i32.const 1))))
+        (tmp-for-log i32))
     (with-destruct (sp)
-      (log (i32.const 333111))
+      (log-string "func3: before call" tmp-for-log)
       (test-shared-ptr3-called $&sp)
-      (log (i32.const 333222)))
-    (log (i32.const 333333))))
+      (test-shared-ptr3-called (new-shared-ptr (new-i32 (i32.const 2))))
+      (log-string "func3: after call" tmp-for-log))
+    (log-string "func3: after destruct" tmp-for-log)))
 
 (defun.wat test-shared-ptr () ()
   (with-debug
@@ -849,7 +848,7 @@
                            $&new-symbol
                            $&new-value))
             (t (set-var-cell-next $&var-cell
-                                  $&(new-var-cell $&new-symbol $&new-value)))))))
+                                  (new-var-cell $&new-symbol $&new-value)))))))
 
 (defun.wat find-var-cell-by-symbol ((var-cell i32) (symbol i32)) (i32)
   (let ((result i32))
@@ -882,7 +881,7 @@
     (with-destruct (s-ptr next-ptr old)
       (set-local old (get-var-cell-next* $*s-ptr))
       (store-i32 (i32+ (get-type-data-offset $*s-ptr) 2)
-                 next-ptr))))
+                 $&next-ptr))))
 
 (defun.wat next-var-cell-exist-p* ((ptr i32)) (i32)
   (let ((result i32))
@@ -903,20 +902,17 @@
   (new-var-cell (sp (new-symbol symbol-id))
                 (sp (new-i32 i32-value))))
 
-(defun.wat test-env () ()
+(defun.wat test-env1 () ()
   (let ((tmp i32)
-        (tmp2 i32)
-        (tmp3 i32)
         (res1 i32)
         (res2 i32)
         (res3 i32)
-        (res4 i32)
-        (res5 i32)
         (tmp-for-log i32))
     (init-memory)
     (log-string "- var-cell -" tmp-for-log)
     (with-destruct (tmp res1 res2 res3)
-      (set-local tmp (new-test-var-cell (i32.const 1) (i32.const 10)))
+      (set-local tmp (new-var-cell (sp (new-symbol (i32.const 1)))
+                                   (sp (new-i32 (i32.const 10)))))
       ;; add
       (add-var-cell $&tmp
                     (sp (new-symbol (i32.const 2)))
@@ -931,7 +927,7 @@
       (log (get-i32 $*(get-var-cell-value* $*res1))) ; expect 10
       ;; check 2
       (set-local res2 (find-var-cell-by-symbol
-                          $&tmp (sp (new-symbol (i32.const 2)))))
+                       $&tmp (sp (new-symbol (i32.const 2)))))
       (log (get-i32 $*(get-var-cell-value* $*res2))) ; expect 30
       ;; check 3
       (set-local res3 (find-var-cell-by-symbol
@@ -939,7 +935,19 @@
       (log (null-ptr-p $*res3)) ; expect 1
       )
     (log (no-memory-allocated-p)) ; expect 1
+    ))
 
+(defun.wat test-env2 () ()
+  (let ((tmp i32)
+        (tmp2 i32)
+        (tmp3 i32)
+        (res1 i32)
+        (res2 i32)
+        (res3 i32)
+        (res4 i32)
+        (res5 i32)
+        (tmp-for-log i32))
+    (init-memory)
     (log-string "- scope -" tmp-for-log)
     (with-destruct (tmp tmp2 tmp3 res1 res2 res3 res4 res5)
       (set-local tmp (new-scope))
@@ -983,7 +991,17 @@
       (log (get-i32 $*res5)) ; expect 20
       )
     (log (no-memory-allocated-p)) ; expect 1
+    ))
 
+(defun.wat test-env3 () ()
+  (let ((tmp i32)
+        (res1 i32)
+        (res2 i32)
+        (res3 i32)
+        (res4 i32)
+        (res5 i32)
+        (tmp-for-log i32))
+    (init-memory)
     (log-string "- env -" tmp-for-log)
     (with-destruct (tmp res1 res2 res3 res4 res5)
       (set-local tmp (new-env))
@@ -1030,6 +1048,11 @@
     ;; (dump-memory)
     ))
 
+(defun.wat test-env () ()
+  (test-env1)
+  (test-env2)
+  (test-env3))
+
 (defexport.wat test-env (func test-env))
 
 ;; --- list interpreter --- ;;
@@ -1052,17 +1075,20 @@
           (get-symbol-id ptr2)))
 
 (defun.wat car.sp ((s-ptr i32)) (i32)
-  (car $*s-ptr))
+  (let ((result i32))
+    (with-destruct (s-ptr)
+      (set-local result $&(car $*s-ptr)))
+    (get-local result)))
 
 (defun.wat cdr.sp ((s-ptr i32)) (i32)
-  (cdr $*s-ptr))
-
-(defun.wat atom.sp ((s-ptr i32)) (i32)
-  (atom $*s-ptr))
+  (let ((result i32))
+    (with-destruct (s-ptr)
+      (set-local result $&(cdr $*s-ptr)))
+    (get-local result)))
 
 (defun.wat interpret-list ((s-ptr i32)) (i32)
-  (let (((head i32) $&(car.sp s-ptr))
-        ((rest i32) $&(cdr.sp s-ptr))
+  (let (((head i32) (car.sp $&s-ptr))
+        ((rest i32) (cdr.sp $&s-ptr))
         (result i32)
         (tmp1 i32)
         (tmp2 i32)
@@ -1073,41 +1099,41 @@
              (set-local symbol-id (get-symbol-id $*head))
              (cond (; 1: atom
                     (i32.eq symbol-id (i32.const 1))
-                    (set-local tmp1 (interpret $&(car.sp rest)))
+                    (set-local tmp1 (interpret (car.sp $&rest)))
                     (set-local result
-                               (sp (new-i32 (atom.sp tmp1)))))
+                               (sp (new-i32 (atom $*tmp1)))))
                    (; 2: eq
                     (i32.eq symbol-id (i32.const 2))
-                    (set-local tmp1 (interpret $&(car.sp rest)))
-                    (set-local tmp2 (interpret $&(car.sp (cdr.sp rest))))
+                    (set-local tmp1 (interpret (car.sp $&rest)))
+                    (set-local tmp2 (interpret (car.sp (cdr.sp $&rest))))
                     (set-local result
                                (sp (new-i32 (eq-typed $&tmp1 $&tmp2)))))
                    (; 3: car
                     (i32.eq symbol-id (i32.const 3))
-                    (set-local tmp1 (interpret $&(car.sp rest)))
-                    (set-local result $&(car.sp tmp1)))
+                    (set-local tmp1 (interpret (car.sp $&rest)))
+                    (set-local result (car.sp $&tmp1)))
                    (; 4: cdr
                     (i32.eq symbol-id (i32.const 4))
-                    (set-local tmp1 (interpret $&(car.sp rest)))
-                    (set-local result $&(cdr.sp tmp1)))
+                    (set-local tmp1 (interpret (car.sp $&rest)))
+                    (set-local result (cdr.sp $&tmp1)))
                    (; 5: cons
                     (i32.eq symbol-id (i32.const 5))
-                    (set-local tmp1 (interpret $&(car.sp rest)))
-                    (set-local tmp2 (interpret $&(car.sp (cdr.sp rest))))
+                    (set-local tmp1 (interpret (car.sp $&rest)))
+                    (set-local tmp2 (interpret (car.sp (cdr.sp $&rest))))
                     (set-local result (cons.sp $&tmp1 $&tmp2)))
                    (; 101: quote
                     (i32.eq symbol-id (i32.const 101))
-                    (set-local result $&(car.sp rest)))))
+                    (set-local result (car.sp $&rest)))))
             (t (log-string "ERROR: head type: " tmp-for-log)
                (log (get-type $*head))))))
     (get-local result))
 
 (defun.wat interpret ((s-ptr i32)) (i32)
   (let ((result i32))
-    (with-destruct (s-ptr result)
+    (with-destruct (s-ptr)
       (cond ((atom $*s-ptr)
-             (set-local result $&$&s-ptr))
-            (t (set-local result $&(interpret-list $&s-ptr)))))
+             (set-local result $&s-ptr))
+            (t (set-local result (interpret-list $&s-ptr)))))
     (get-local result)))
 
 (defun.wat test-list-interpreter () ()
@@ -1115,7 +1141,7 @@
         (result i32)
         (tmp-for-log i32))
     (init-memory)
-    (progn                              ; with-debug
+    (progn ; with-debug
       (log-string "- 111" tmp-for-log)
       (with-destruct (tmp result)
         (set-local tmp (sp (new-i32 (i32.const 111))))
@@ -1155,8 +1181,8 @@
                                 (list.sp (new-i32 (i32.const 1))
                                          (new-i32 (i32.const 2)))))
         (set-local result (interpret $&tmp))
-        (print-typed $&(car.sp result))
-        (print-typed $&(cdr.sp result)))
+        (print-typed (car.sp $&result))
+        (print-typed (cdr.sp $&result)))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (atom (quote (1 2)))" tmp-for-log)

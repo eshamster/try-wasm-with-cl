@@ -47,5 +47,4 @@
                      (console.log "--- call test_env ---")
                      (results.instance.exports.test_env)
                      (console.log "--- call test_list_interpreter ---")
-                     ;; (results.instance.exports.test_list_interpreter)
-                     ))))))
+                     (results.instance.exports.test_list_interpreter)))))))
