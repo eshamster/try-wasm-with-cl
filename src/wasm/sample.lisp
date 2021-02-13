@@ -1086,7 +1086,7 @@
       (set-local result $&(cdr $*s-ptr)))
     (get-local result)))
 
-(defun.wat interpret-list ((s-ptr i32)) (i32)
+(defun.wat interpret-list ((s-ptr i32) (env i32)) (i32)
   (let (((head i32) (car.sp $&s-ptr))
         ((rest i32) (cdr.sp $&s-ptr))
         (result i32)
@@ -1094,32 +1094,32 @@
         (tmp2 i32)
         (symbol-id i32)
         (tmp-for-log i32))
-    (with-destruct (s-ptr head rest tmp1 tmp2)
+    (with-destruct (s-ptr env head rest tmp1 tmp2)
       (cond ((symbol-p $*head)
              (set-local symbol-id (get-symbol-id $*head))
              (cond (; 1: atom
                     (i32.eq symbol-id (i32.const 1))
-                    (set-local tmp1 (interpret (car.sp $&rest)))
+                    (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local result
                                (sp (new-i32 (atom $*tmp1)))))
                    (; 2: eq
                     (i32.eq symbol-id (i32.const 2))
-                    (set-local tmp1 (interpret (car.sp $&rest)))
-                    (set-local tmp2 (interpret (car.sp (cdr.sp $&rest))))
+                    (set-local tmp1 (interpret (car.sp $&rest) $&env))
+                    (set-local tmp2 (interpret (car.sp (cdr.sp $&rest)) $&env))
                     (set-local result
                                (sp (new-i32 (eq-typed $&tmp1 $&tmp2)))))
                    (; 3: car
                     (i32.eq symbol-id (i32.const 3))
-                    (set-local tmp1 (interpret (car.sp $&rest)))
+                    (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local result (car.sp $&tmp1)))
                    (; 4: cdr
                     (i32.eq symbol-id (i32.const 4))
-                    (set-local tmp1 (interpret (car.sp $&rest)))
+                    (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local result (cdr.sp $&tmp1)))
                    (; 5: cons
                     (i32.eq symbol-id (i32.const 5))
-                    (set-local tmp1 (interpret (car.sp $&rest)))
-                    (set-local tmp2 (interpret (car.sp (cdr.sp $&rest))))
+                    (set-local tmp1 (interpret (car.sp $&rest) $&env))
+                    (set-local tmp2 (interpret (car.sp (cdr.sp $&rest)) $&env))
                     (set-local result (cons.sp $&tmp1 $&tmp2)))
                    (; 101: quote
                     (i32.eq symbol-id (i32.const 101))
@@ -1128,100 +1128,110 @@
                (log (get-type $*head))))))
     (get-local result))
 
-(defun.wat interpret ((s-ptr i32)) (i32)
+(defun.wat interpret ((s-ptr i32) (env i32)) (i32)
   (let ((result i32))
-    (with-destruct (s-ptr)
+    (with-destruct (s-ptr env)
       (cond ((atom $*s-ptr)
              (set-local result $&s-ptr))
-            (t (set-local result (interpret-list $&s-ptr)))))
+            (t (set-local result (interpret-list $&s-ptr $&env)))))
     (get-local result)))
 
 (defun.wat test-list-interpreter () ()
   (let ((tmp i32)
+        (env i32)
         (result i32)
         (tmp-for-log i32))
     (init-memory)
     (progn ; with-debug
       (log-string "- 111" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (sp (new-i32 (i32.const 111))))
-        (set-local result (interpret $&tmp))
+        (set-local result (interpret $&tmp $&env))
         (print-typed $&result))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (atom 10)" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 1))
                                 (new-i32 (i32.const 10))))
-        (set-local result (interpret $&tmp))
+        (set-local result (interpret $&tmp $&env))
         (print-typed $&result))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (eq 10 10)" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 2))
                                 (new-i32 (i32.const 10))
                                 (new-i32 (i32.const 10))))
-        (set-local result (interpret $&tmp))
+        (set-local result (interpret $&tmp $&env))
         (print-typed $&result))         ; expect 1
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (eq 10 20)" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 2))
                                 (new-i32 (i32.const 10))
                                 (new-i32 (i32.const 20))))
-        (set-local result (interpret $&tmp))
+        (set-local result (interpret $&tmp $&env))
         (print-typed $&result))         ; expect 0
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (quote (1 2))" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 101))
                                 (list.sp (new-i32 (i32.const 1))
                                          (new-i32 (i32.const 2)))))
-        (set-local result (interpret $&tmp))
+        (set-local result (interpret $&tmp $&env))
         (print-typed (car.sp $&result))
         (print-typed (cdr.sp $&result)))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (atom (quote (1 2)))" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 1))
                                 (list.sp (new-symbol (i32.const 101))
                                          (list.sp (new-i32 (i32.const 100))
                                                   (new-i32 (i32.const 200))))))
-        (set-local result (interpret $&tmp))
+        (set-local result (interpret $&tmp $&env))
         (print-typed $&result))     ;; expect 0
       (log (no-memory-allocated-p)) ; expect 1
 
       (log-string "- (car (quote (100 . 200)))" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 3))
                                 (list.sp (new-symbol (i32.const 101))
                                          (cons.sp (new-i32 (i32.const 100))
                                                   (new-i32 (i32.const 200))))))
-        (set-local result (interpret $&tmp)) ;; expect 100
+        (set-local result (interpret $&tmp $&env)) ;; expect 100
         (print-typed $&result))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (cdr (quote (100 . 200)))" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 4))
                                 (list.sp (new-symbol (i32.const 101))
                                          (cons.sp (new-i32 (i32.const 100))
                                                   (new-i32 (i32.const 200))))))
-        (set-local result (interpret $&tmp)) ;; expect 200
+        (set-local result (interpret $&tmp $&env)) ;; expect 200
         (print-typed $&result))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (car (cons 100 200)))" tmp-for-log)
-      (with-destruct (tmp result)
+      (with-destruct (tmp env result)
+        (set-local env (new-env))
         (set-local tmp (list.sp (new-symbol (i32.const 3))
                                 (list.sp (new-symbol (i32.const 5))
                                          (new-i32 (i32.const 100))
                                          (new-i32 (i32.const 200)))))
-        (set-local result (interpret $&tmp)) ;; expect 100
+        (set-local result (interpret $&tmp $&env)) ;; expect 100
         (print-typed $&result))
       (log (no-memory-allocated-p))     ; expect 1
       )))
