@@ -1088,6 +1088,21 @@
       (set-local result $&(cdr $*s-ptr)))
     (get-local result)))
 
+(defmacro def-named-symbol (name id)
+  `(progn (defun.wat ,(symbolicate "NEW-SYMBOL-" name) () (i32)
+            (sp (new-symbol (i32.const ,id))))
+          (defun.wat ,(symbolicate "SYMBOL-" name "-P*") ((ptr i32)) (i32)
+            (i32.eq (get-symbol-id ptr)
+                    (i32.const ,id)))))
+
+(def-named-symbol atom   -1)
+(def-named-symbol eq     -2)
+(def-named-symbol car    -3)
+(def-named-symbol cdr    -4)
+(def-named-symbol cons   -5)
+(def-named-symbol quote  -101)
+(def-named-symbol define -102)
+
 (defun.wat interpret-list ((s-ptr i32) (env i32)) (i32)
   (let (((head i32) (car.sp $&s-ptr))
         ((rest i32) (cdr.sp $&s-ptr))
@@ -1099,35 +1114,35 @@
     (with-destruct (s-ptr env head rest tmp1 tmp2)
       (cond ((symbol-p $*head)
              (set-local symbol-id (get-symbol-id $*head))
-             (cond (; 1: atom
-                    (i32.eq symbol-id (i32.const 1))
+             (cond (; atom
+                    (symbol-atom-p* $*head)
                     (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local result
                                (sp (new-i32 (atom $*tmp1)))))
-                   (; 2: eq
-                    (i32.eq symbol-id (i32.const 2))
+                   (; eq
+                    (symbol-eq-p* $*head)
                     (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local tmp2 (interpret (car.sp (cdr.sp $&rest)) $&env))
                     (set-local result
                                (sp (new-i32 (eq-typed $&tmp1 $&tmp2)))))
-                   (; 3: car
-                    (i32.eq symbol-id (i32.const 3))
+                   (; car
+                    (symbol-car-p* $*head)
                     (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local result (car.sp $&tmp1)))
-                   (; 4: cdr
-                    (i32.eq symbol-id (i32.const 4))
+                   (; cdr
+                    (symbol-cdr-p* $*head)
                     (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local result (cdr.sp $&tmp1)))
-                   (; 5: cons
-                    (i32.eq symbol-id (i32.const 5))
+                   (; cons
+                    (symbol-cons-p* $*head)
                     (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (set-local tmp2 (interpret (car.sp (cdr.sp $&rest)) $&env))
                     (set-local result (cons.sp $&tmp1 $&tmp2)))
-                   (; 101: quote
-                    (i32.eq symbol-id (i32.const 101))
+                   (; quote
+                    (symbol-quote-p* $*head)
                     (set-local result (car.sp $&rest)))
-                   (; 102: define
-                    (i32.eq symbol-id (i32.const 102))
+                   (; define
+                    (symbol-define-p* $*head)
                     (set-local tmp1 (car.sp $&rest))
                     (unless (symbol-p $*tmp1)
                       (log-string "ERROR: first arg of define should be symbol. ptr: " tmp-for-log)
@@ -1169,7 +1184,7 @@
       (log-string "- (atom 10)" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 1))
+        (set-local exp1 (list.sp (new-symbol-atom)
                                  (new-i32 (i32.const 10))))
         (set-local res1 (interpret $&exp1 $&env))
         (print-typed $&res1))
@@ -1178,7 +1193,7 @@
       (log-string "- (eq 10 10)" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 2))
+        (set-local exp1 (list.sp (new-symbol-eq)
                                  (new-i32 (i32.const 10))
                                  (new-i32 (i32.const 10))))
         (set-local res1 (interpret $&exp1 $&env))
@@ -1188,7 +1203,7 @@
       (log-string "- (eq 10 20)" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 2))
+        (set-local exp1 (list.sp (new-symbol-eq)
                                  (new-i32 (i32.const 10))
                                  (new-i32 (i32.const 20))))
         (set-local res1 (interpret $&exp1 $&env))
@@ -1198,7 +1213,7 @@
       (log-string "- (quote (1 2))" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 101))
+        (set-local exp1 (list.sp (new-symbol-quote)
                                  (list.sp (new-i32 (i32.const 1))
                                           (new-i32 (i32.const 2)))))
         (set-local res1 (interpret $&exp1 $&env))
@@ -1209,44 +1224,44 @@
       (log-string "- (atom (quote (1 2)))" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 1))
-                                 (list.sp (new-symbol (i32.const 101))
+        (set-local exp1 (list.sp (new-symbol-atom)
+                                 (list.sp (new-symbol-quote)
                                           (list.sp (new-i32 (i32.const 100))
                                                    (new-i32 (i32.const 200))))))
         (set-local res1 (interpret $&exp1 $&env))
-        (print-typed $&res1))     ;; expect 0
+        (print-typed $&res1))     ; expect 0
       (log (no-memory-allocated-p)) ; expect 1
 
       (log-string "- (car (quote (100 . 200)))" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 3))
-                                 (list.sp (new-symbol (i32.const 101))
+        (set-local exp1 (list.sp (new-symbol-car)
+                                 (list.sp (new-symbol-quote)
                                           (cons.sp (new-i32 (i32.const 100))
                                                    (new-i32 (i32.const 200))))))
-        (set-local res1 (interpret $&exp1 $&env)) ;; expect 100
+        (set-local res1 (interpret $&exp1 $&env)) ; expect 100
         (print-typed $&res1))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (cdr (quote (100 . 200)))" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 4))
-                                 (list.sp (new-symbol (i32.const 101))
+        (set-local exp1 (list.sp (new-symbol-cdr)
+                                 (list.sp (new-symbol-quote)
                                           (cons.sp (new-i32 (i32.const 100))
                                                    (new-i32 (i32.const 200))))))
-        (set-local res1 (interpret $&exp1 $&env)) ;; expect 200
+        (set-local res1 (interpret $&exp1 $&env)) ; expect 200
         (print-typed $&res1))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (car (cons 100 200)))" tmp-for-log)
       (with-destruct (exp1 env res1)
         (set-local env (new-env))
-        (set-local exp1 (list.sp (new-symbol (i32.const 3))
-                                 (list.sp (new-symbol (i32.const 5))
+        (set-local exp1 (list.sp (new-symbol-car)
+                                 (list.sp (new-symbol-cons)
                                           (new-i32 (i32.const 100))
                                           (new-i32 (i32.const 200)))))
-        (set-local res1 (interpret $&exp1 $&env)) ;; expect 100
+        (set-local res1 (interpret $&exp1 $&env)) ; expect 100
         (print-typed $&res1))
       (log (no-memory-allocated-p))     ; expect 1
 
@@ -1254,7 +1269,7 @@
       (with-destruct (exp1 exp2 env res1 res2)
         (set-local env (new-env))
         ;; (define x 100)
-        (set-local exp1 (list.sp (new-symbol (i32.const 102))
+        (set-local exp1 (list.sp (new-symbol-define)
                                  (new-symbol (i32.const 999))
                                  (new-i32 (i32.const 100))))
         (set-local res1 (interpret $&exp1 $&env))
