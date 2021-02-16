@@ -629,8 +629,22 @@
   (labels ((rec (rest)
              (if rest
                  `(cons.sp ,(car rest) ,(rec (cdr rest)))
-                 `(get-null-ptr))))
+                 `(sp (get-null-ptr)))))
     (rec rest)))
+
+(defun.wat length.sp-rec ((s-ptr i32) (len i32)) (i32)
+  (let ((result i32))
+    (with-destruct (s-ptr)
+      (if (null-ptr-p $*s-ptr)
+          (set-local result len)
+          (set-local result (length.sp-rec (cdr.sp $&s-ptr) (i32+ len 1)))))
+    (get-local result)))
+
+(defun.wat length.sp ((s-ptr i32)) (i32)
+  (let ((result i32))
+    (with-destruct (s-ptr)
+      (set-local result (length.sp-rec $&s-ptr (i32.const 0))))
+    (get-local result)))
 
 (defun.wat test-shared-ptr2 () ()
   (let (((lst i32) (cons.sp (new-i32 (i32.const 1))
