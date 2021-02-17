@@ -1116,6 +1116,7 @@
 (def-named-symbol cons   -5)
 (def-named-symbol quote  -101)
 (def-named-symbol define -102)
+(def-named-symbol if     -103)
 
 (defun.wat interpret-list ((s-ptr i32) (env i32)) (i32)
   (let (((head i32) (car.sp $&s-ptr))
@@ -1123,6 +1124,7 @@
         (result i32)
         (tmp1 i32)
         (tmp2 i32)
+        (tmp-scalar1 i32) ; don't destruct
         (symbol-id i32)
         (tmp-for-log i32))
     (with-destruct (s-ptr env head rest tmp1 tmp2)
@@ -1159,11 +1161,27 @@
                     (symbol-define-p* $*head)
                     (set-local tmp1 (car.sp $&rest))
                     (unless (symbol-p $*tmp1)
-                      (log-string "ERROR: first arg of define should be symbol. ptr: " tmp-for-log)
+                      (log-string "ERROR: first arg of \"define\" should be symbol. ptr: " tmp-for-log)
                       (log tmp1))
                     (set-local tmp2 (interpret (car.sp (cdr.sp $&rest)) $&env))
                     (add-var-cell-to-env $&env $&tmp1 $&tmp2)
-                    (set-local result $&tmp1))))
+                    (set-local result $&tmp1))
+                   (; if
+                    (symbol-if-p* $*head)
+                    (set-local tmp-scalar1 (length.sp $&rest))
+                    (when (i32.ne tmp-scalar1 (i32.const 2))
+                      (when (i32.ne tmp-scalar1 (i32.const 3))
+                        (log-string "ERROR: \"if\" should get 2 or 3 args" tmp-for-log)))
+                    (set-local tmp1 (interpret (car.sp $&rest) $&env))
+                    (if (null-ptr-p $*tmp1)
+                        ;; else
+                        (if (i32.eq tmp-scalar1 (i32.const 3))
+                            (set-local result
+                                       (interpret (car.sp (cdr.sp (cdr.sp $&rest))) $&env))
+                            (set-local result (sp (get-null-ptr))))
+                        ;; then
+                        (set-local result
+                                   (interpret (car.sp (cdr.sp $&rest)) $&env))))))
             (t (log-string "ERROR: head type: " tmp-for-log)
                (log (get-type $*head))))))
     (get-local result))
@@ -1171,7 +1189,9 @@
 (defun.wat interpret ((s-ptr i32) (env i32)) (i32)
   (let ((result i32))
     (with-destruct (s-ptr env)
-      (cond ((symbol-p $*s-ptr)
+      (cond ((null-ptr-p $*s-ptr)
+             (set-local result (sp (get-null-ptr))))
+            ((symbol-p $*s-ptr)
              (set-local result (get-symbol-value $&env $&s-ptr)))
             ((atom $*s-ptr)
              (set-local result $&s-ptr))
@@ -1292,6 +1312,39 @@
         (set-local res2 (interpret $&exp2 $&env)) ; expect 100
         (print-typed $&res2)) 
       (log (no-memory-allocated-p))     ; expect 1
+
+      (log-string "- (if 1 10 20)" tmp-for-log)
+      (with-destruct (exp1 env)
+        (set-local env (new-env))
+        (set-local exp1 (list.sp (new-symbol-if)
+                                 (new-i32 (i32.const 1))
+                                 (new-i32 (i32.const 10))
+                                 (new-i32 (i32.const 20))))
+        (print-typed (interpret $&exp1 $&env))  ; expect 10
+        )
+      (log (no-memory-allocated-p)); expect 1
+
+      (log-string "- (if nil 10 20)" tmp-for-log)
+      (with-destruct (exp1 env)
+        (set-local env (new-env))
+        (set-local exp1 (list.sp (new-symbol-if)
+                                 (sp (get-null-ptr))
+                                 (new-i32 (i32.const 10))
+                                 (new-i32 (i32.const 20))))
+        (print-typed (interpret $&exp1 $&env))  ; expect 10
+        )
+      (log (no-memory-allocated-p)); expect 1
+
+      (log-string "- (if nil 10)" tmp-for-log)
+      (with-destruct (exp1 res1 env)
+        (set-local env (new-env))
+        (set-local exp1 (list.sp (new-symbol-if)
+                                 (sp (get-null-ptr))
+                                 (new-i32 (i32.const 10))))
+        (set-local res1 (interpret $&exp1 $&env))
+        (log (null-ptr-p $*res1))  ; expect 1
+        )
+      (log (no-memory-allocated-p)); expect 1
       )))
 
 (defexport.wat test-list-interpreter (func test-list-interpreter))
