@@ -23,6 +23,7 @@
                 #:i32.mul
                 #:i32.rem-u
                 #:i32.eq
+                #:i32.ne
                 #:i32.eqz
                 #:i32.ge-u
                 #:i32.gt-u
