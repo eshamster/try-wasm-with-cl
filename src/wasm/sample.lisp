@@ -1454,7 +1454,7 @@
       (log (no-memory-allocated-p)); expect 1
 
       (log-string "- ((lambda (x) (car x)) (cons 1 2))" tmp-for-log)
-      (with-destruct (exp1 env res1)
+      (with-destruct (exp1 env)
         (set-local env (new-env))
         (set-local exp1 (list.sp (list.sp (new-symbol-lambda)
                                           (list.sp (new-symbol (i32.const 999)))
@@ -1463,7 +1463,6 @@
                                  (list.sp (new-symbol-cons)
                                           (new-i32 (i32.const 1))
                                           (new-i32 (i32.const 2)))))
-        (set-local res1 (interpret $&exp1 $&env))
         (print-typed (interpret $&exp1 $&env))  ; expect 1
         )
       (log (no-memory-allocated-p)); expect 1
