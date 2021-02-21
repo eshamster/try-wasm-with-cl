@@ -27,6 +27,7 @@
                 #:i32.ge-u
                 #:i32.gt-u
                 #:i32.lt-u
+                #:i32.lt-s
                 #:i32.store
                 #:i32.store8
                 #:i32.load
@@ -1118,7 +1119,25 @@
 (def-named-symbol define -102)
 (def-named-symbol if     -103)
 
-(defun.wat interpret-list ((s-ptr i32) (env i32)) (i32)
+;; TODO: Move to more proper place
+(defun.wat not ((bool i32)) (i32)
+  (let ((result i32))
+    (if (i32.eq bool (i32.const 0))
+        (set-local result (i32.const 1))
+        (set-local result (i32.const 0)))
+    (get-local result)))
+
+(defun.wat default-symbol-p ((sym i32)) (i32)
+  (let ((result i32))
+    (with-destruct (sym)
+      (cond ((not (symbol-p $*sym))
+             (set-local result (i32.const 0)))
+            ((i32.lt-s (get-symbol-id $*sym) (i32.const 0))
+             (set-local result (i32.const 1)))
+            (t (set-local result (i32.const 0)))))
+    (get-local result)))
+
+(defun.wat interpret-builtins ((s-ptr i32) (env i32)) (i32)
   (let (((head i32) (car.sp $&s-ptr))
         ((rest i32) (cdr.sp $&s-ptr))
         (result i32)
@@ -1184,13 +1203,25 @@
                                    (interpret (car.sp (cdr.sp $&rest)) $&env))))))
             (t (log-string "ERROR: head type: " tmp-for-log)
                (log (get-type $*head))))))
-    (get-local result))
+  (get-local result))
+
+(defun.wat interpret-list ((s-ptr i32) (env i32)) (i32)
+  (let (((head i32) (car.sp $&s-ptr))
+        ((rest i32) (cdr.sp $&s-ptr))
+        (tmp i32)
+        (result i32))
+    (with-destruct (s-ptr env head rest tmp)
+      (set-local tmp (interpret $&head $&env))
+      (set-local result (interpret-builtins (cons.sp $&tmp $&rest) $&env)))
+    (get-local result)))
 
 (defun.wat interpret ((s-ptr i32) (env i32)) (i32)
   (let ((result i32))
     (with-destruct (s-ptr env)
       (cond ((null-ptr-p $*s-ptr)
              (set-local result (sp (get-null-ptr))))
+            ((default-symbol-p $&s-ptr)
+             (set-local result $&s-ptr))
             ((symbol-p $*s-ptr)
              (set-local result (get-symbol-value $&env $&s-ptr)))
             ((atom $*s-ptr)
@@ -1257,6 +1288,14 @@
         ;; expect 0
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p)) ; expect 1
+
+      (log-string "- ((quote atom) 10)" tmp-for-log)
+      (with-destruct (exp1)
+        (set-local exp1 (list.sp (list.sp (new-symbol-quote)
+                                          (new-symbol-atom))
+                                 (new-i32 (i32.const 10))))
+        (print-typed (interpret $&exp1 (new-env))))
+      (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (car (quote (100 . 200)))" tmp-for-log)
       (with-destruct (exp1)
