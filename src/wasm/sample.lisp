@@ -1118,6 +1118,7 @@
 (def-named-symbol quote  -101)
 (def-named-symbol define -102)
 (def-named-symbol if     -103)
+(def-named-symbol lambda -104)
 
 ;; TODO: Move to more proper place
 (defun.wat not ((bool i32)) (i32)
@@ -1136,6 +1137,77 @@
              (set-local result (i32.const 1)))
             (t (set-local result (i32.const 0)))))
     (get-local result)))
+
+(defun.wat lambda-list-p ((s-ptr i32)) (i32)
+  ;; A valid lambda-list is a flat symbol list (e.g. "(x y)")
+  (let ((result i32)
+        (head i32))
+    (with-destruct (s-ptr head)
+      (cond ((null-ptr-p $*s-ptr)
+             (set-local result (i32.const 1)))
+            ((not (cons-cell-p $*s-ptr))
+             (set-local result (i32.const 0)))
+            (t (set-local head (car.sp $&s-ptr))
+               (if (symbol-p $*head)
+                   (set-local result (lambda-list-p (cdr.sp $&s-ptr)))
+                   (set-local result (i32.const 0))))))
+    (get-local result)))
+
+(defun.wat function-p ((s-ptr i32)) (i32)
+  ;; like "(lambda (x y) ...)" is a function
+  (let ((result i32)
+        (head i32))
+    (with-destruct (s-ptr head)
+      (cond ((not (cons-cell-p $*s-ptr))
+             (set-local result (i32.const 0)))
+            (t (set-local head (car.sp $&s-ptr))
+               (set-local result (symbol-lambda-p* $*head)))))
+    (get-local result)))
+
+(defun.wat bind-function-args-rec ((lambda-list i32) (args i32) (env i32)) ()
+  (let ((tmp-for-log i32))
+    (with-destruct (lambda-list args env)
+      (unless (null-ptr-p $*lambda-list)
+        (add-var-cell-to-env $&env
+                             (car.sp $&lambda-list)
+                             (interpret (car.sp $&args) $&env))
+        (bind-function-args-rec (cdr.sp $&lambda-list)
+                                (cdr.sp $&args)
+                                $&env)))))
+
+(defun.wat bind-function-args ((lambda-list i32) (args i32) (env i32)) ()
+  (let (((len1 i32) (length.sp $&lambda-list))
+        ((len2 i32) (length.sp $&args))
+        (tmp-for-log i32))
+    (with-destruct (lambda-list args env)
+      (if (i32.eq len1 len2)
+          (bind-function-args-rec $&lambda-list $&args $&env)
+          (log-string "ERROR: length of lambda-list args is different" tmp-for-log)))))
+
+(defun.wat interpret-function-body ((fn-body i32) (env i32)) (i32)
+  (let ((tmp i32)
+        (rest i32)
+        (result i32))
+    (with-destruct (fn-body env tmp rest)
+      (set-local tmp (interpret (car.sp $&fn-body) $&env))
+      (set-local rest (cdr.sp $&fn-body))
+      (if (null-ptr-p $*rest)
+          (set-local result $&tmp)
+          (set-local result (interpret-function-body $&rest $&env))))
+    (get-local result)))
+
+(defun.wat interpret-function ((fn i32) (args i32) (env i32)) (i32)
+  (let ((result i32)
+        ((lambda-list i32) (car.sp (cdr.sp $&fn)))
+        ((body i32) (cdr.sp (cdr.sp $&fn))))
+    (with-destruct (fn args env lambda-list body)
+      (enter-scope $&env)
+      (bind-function-args $&lambda-list $&args $&env)
+      (if (null-ptr-p $*body)
+          (set-local result (sp (get-null-ptr)))
+          (set-local result (interpret-function-body $&body $&env)))
+      (exit-scope $&env)))
+  (get-local result))
 
 (defun.wat interpret-builtins ((s-ptr i32) (env i32)) (i32)
   (let (((head i32) (car.sp $&s-ptr))
@@ -1200,7 +1272,12 @@
                             (set-local result (sp (get-null-ptr))))
                         ;; then
                         (set-local result
-                                   (interpret (car.sp (cdr.sp $&rest)) $&env))))))
+                                   (interpret (car.sp (cdr.sp $&rest)) $&env))))
+                   (; lambda
+                    (symbol-lambda-p* $*head)
+                    (unless (lambda-list-p (car.sp $&rest))
+                      (log-string "ERROR: invalid lambda-list" tmp-for-log))
+                    (set-local result $&s-ptr))))
             (t (log-string "ERROR: head type: " tmp-for-log)
                (log (get-type $*head))))))
   (get-local result))
@@ -1212,7 +1289,10 @@
         (result i32))
     (with-destruct (s-ptr env head rest tmp)
       (set-local tmp (interpret $&head $&env))
-      (set-local result (interpret-builtins (cons.sp $&tmp $&rest) $&env)))
+      (cond ((function-p $&tmp)
+             (set-local result (interpret-function $&tmp $&rest $&env)))
+            (t (set-local result
+                          (interpret-builtins (cons.sp $&tmp $&rest) $&env)))))
     (get-local result)))
 
 (defun.wat interpret ((s-ptr i32) (env i32)) (i32)
@@ -1369,6 +1449,21 @@
                                  (new-i32 (i32.const 10))))
         (set-local res1 (interpret $&exp1 $&env))
         (log (null-ptr-p $*res1))  ; expect 1
+        )
+      (log (no-memory-allocated-p)); expect 1
+
+      (log-string "- ((lambda (x) (car x)) (cons 1 2))" tmp-for-log)
+      (with-destruct (exp1 env res1)
+        (set-local env (new-env))
+        (set-local exp1 (list.sp (list.sp (new-symbol-lambda)
+                                          (list.sp (new-symbol (i32.const 999)))
+                                          (list.sp (new-symbol-car)
+                                                   (new-symbol (i32.const 999))))
+                                 (list.sp (new-symbol-cons)
+                                          (new-i32 (i32.const 1))
+                                          (new-i32 (i32.const 2)))))
+        (set-local res1 (interpret $&exp1 $&env))
+        (print-typed (interpret $&exp1 $&env))  ; expect 1
         )
       (log (no-memory-allocated-p)); expect 1
       )))
