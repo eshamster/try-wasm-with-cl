@@ -53,9 +53,9 @@
 (defglobal.wat debug js.debug (mut i32))
 
 (defmacro.wat with-debug (&body body)
-  `(progn (set-global debug (i32.const 1))
+  `(progn (set-global debug 1)
           ,@body
-          (set-global debug (i32.const 0))))
+          (set-global debug 0)))
 
 (defun.wat debug-p () (i32)
   (get-global debug))
@@ -66,23 +66,23 @@
 ;; Instead, use store-i32 and load-i32 to process offset by 32 bits.
 
 (defun.wat store-i32 ((offset i32) (value i32)) ()
-  (i32.store (i32.mul offset (i32.const 4))
+  (i32.store (i32.mul offset 4)
              value))
 
 (defun.wat load-i32 ((offset i32)) (i32)
-  (i32.load (i32.mul offset (i32.const 4))))
+  (i32.load (i32.mul offset 4)))
 
 (defun.wat get-null-ptr () (i32)
   (i32.const 0))
 
 (defun.wat null-ptr-p ((ptr i32)) (i32)
-  (i32.eq ptr (i32.const 0)))
+  (i32.eq ptr 0))
 
 (defun.wat get-global-memory-head () (i32)
   (i32.const 1))
 
 (defun.wat global-memory-head-p ((head i32)) (i32)
-  (i32.eq head (i32.const 1)))
+  (i32.eq head 1))
 
 (defun.wat last-empty-head-p ((head i32)) (i32)
   (i32.eqz (load-i32 head)))
@@ -91,10 +91,8 @@
   (i32.const 1))
 
 (defun.wat init-memory () ()
-  (store-i32 (get-global-memory-head)
-             (i32.const 2))
-  (store-i32 (i32.const 2)
-             (i32.const 0)))
+  (store-i32 (get-global-memory-head) 2)
+  (store-i32 2 0))
 
 (defun.wat get-empty-memory-size ((head i32)) (i32)
   (load-i32 (i32+ head 1)))
@@ -111,12 +109,12 @@
 
 ;; mainly for test
 (defun.wat no-memory-allocated-p () (i32)
-  (let (((expected-head i32) (i32.const 2))
-        ((result i32) (i32.const 0)))
+  (let (((expected-head i32) 2)
+        ((result i32) 0))
     (when (i32.eq (load-i32 (get-global-memory-head))
                   expected-head)
       (when (last-empty-head-p expected-head)
-        (set-local result (i32.const 1))))
+        (set-local result 1)))
     (get-local result)))
 
 ;; - malloc - ;;
@@ -128,11 +126,11 @@
         (result i32))
     (cond
       ;; --- Case of tail of memory.
-      ((i32.eq next-head (i32.const 0))
+      ((i32.eq next-head 0)
        ;; TODO: Extend memory if shortage
        (set-local new-head
                   (i32+ head size (get-header-size)))
-       (store-i32 new-head (i32.const 0))
+       (store-i32 new-head 0)
        (store-i32 prev-head new-head)
        (store-i32 head size)
        (set-local result (i32+ head (get-header-size))))
@@ -153,8 +151,7 @@
        (store-i32 head size)
        (set-local result (i32+ head (get-header-size))))
       ;; --- Case where empty size is not enough.
-      (t (malloc-rec size head next-head)
-         (set-local result))))
+      (t (set-local result (malloc-rec size head next-head)))))
   (get-local result))
 
 (defun.wat adjust-malloc-size ((size i32) (header-size i32) (align-size i32)) (i32)
@@ -171,7 +168,7 @@
 (defun.wat malloc ((size i32)) (i32)
   (let (((actual-size i32) (adjust-malloc-size size
                                                (get-header-size)
-                                               (i32.const 2)))
+                                               2))
         ((global-head i32) (get-global-memory-head)))
     (malloc-rec actual-size
                 global-head
@@ -184,11 +181,10 @@
         (result i32))
     (cond ((i32.eqz next-head)
            ;; This case should not happen
-           (set-local result (i32.const 0)))
+           (set-local result 0))
           ((i32.gt-u next-head ptr)
            (set-local result head))
-          (t (find-prev-empty-head-rec ptr next-head)
-             (set-local result)))
+          (t (set-local result (find-prev-empty-head-rec ptr next-head))))
     (get-local result)))
 
 (defun.wat find-prev-empty-head ((ptr i32)) (i32)
@@ -196,7 +192,7 @@
 
 ;; Return 1 if merge is enable, otherwize return 0.
 (defun.wat merge-empty-memory-if-enable ((prev-head i32) (head i32)) (i32)
-  (let (((result i32) (i32.const 0)))
+  (let (((result i32) 0))
     (unless (global-memory-head-p prev-head)
       (when (i32.eq (i32+ prev-head
                           (get-header-size)
@@ -209,7 +205,7 @@
                                  (i32+ (get-empty-memory-size prev-head)
                                        (get-header-size)
                                        (get-empty-memory-size head))))
-        (set-local result (i32.const 1))))
+        (set-local result 1)))
     (get-local result)))
 
 (defun.wat free ((ptr i32)) ()
@@ -235,20 +231,20 @@
         (mem2 i32)
         (mem3 i32))
     ;; expect 16 - 2
-    (log (adjust-malloc-size (i32.const 12) (i32.const 2) (i32.const 8)))
+    (log (adjust-malloc-size 12 2 8))
     ;; expect 16 - 2
-    (log (adjust-malloc-size (i32.const 14) (i32.const 2) (i32.const 8)))
+    (log (adjust-malloc-size 14 2 8))
 
     (init-memory)
     ;; - malloc - ;;
     ;; expect 3 - free space: 8~
-    (set-local mem1 (malloc (i32.const 5)))
+    (set-local mem1 (malloc 5))
     (log mem1)
     ;; expect 9 - free space: 12~
-    (set-local mem2 (malloc (i32.const 3)))
+    (set-local mem2 (malloc 3))
     (log mem2)
     ;; expect 13 - free space: 18~
-    (set-local mem3 (malloc (i32.const 4)))
+    (set-local mem3 (malloc 4))
     (log mem3)
     (log (load-i32 (get-global-memory-head))) ; expect 18
 
@@ -256,17 +252,17 @@
     ;; free space: 8~11, 18~
     (free mem2)
     (log (load-i32 (get-global-memory-head))) ; expect 8
-    (log (load-i32 (i32.const 8))) ; expect 18
-    (log (load-i32 (get-empty-memory-size (i32.const 8)))) ; expect 3
+    (log (load-i32 8)) ; expect 18
+    (log (load-i32 (get-empty-memory-size 8))) ; expect 3
     ;; free space: 2~11, 18~
     (free mem1)
     (log (load-i32 (get-global-memory-head))) ; expect 2
-    (log (load-i32 (i32.const 2))) ; expect 18
-    (log (load-i32 (i32.const 3))) ; expect 5 + 1 + 3 = 9 (empty size)
+    (log (load-i32 2)) ; expect 18
+    (log (load-i32 3)) ; expect 5 + 1 + 3 = 9 (empty size)
     ;; free space: 2~
     (free mem3)
     (log (load-i32 (get-global-memory-head))) ; expect 2
-    (log (last-empty-head-p (i32.const 2))) ; expect 1
+    (log (last-empty-head-p 2)) ; expect 1
     ))
 
 (defexport.wat test-memory (func test-mem-process))
@@ -281,14 +277,13 @@
   ;; - malloc use memory by 32bit
   (let* ((octets (string-to-octets text :external-format :utf-8))
          (alloc-size (ceiling (/ (length octets) 4))))
-    `(progn (set-local ,var-ptr (malloc (i32.const ,alloc-size)))
+    `(progn (set-local ,var-ptr (malloc ,alloc-size))
             ,@(loop :for i :from 0 :below (length octets)
-                    :collect `(i32.store8 (i32.add (i32.mul ,var-ptr
-                                                           (i32.const 4))
-                                                  (i32.const ,i))
-                                         (i32.const ,(aref octets i))))
-            (logs (i32.mul ,var-ptr (i32.const 4))
-                  (i32.const ,(length octets)))
+                    :collect `(i32.store8 (i32.add (i32.mul ,var-ptr 4)
+                                                   ,i)
+                                          ,(aref octets i)))
+            (logs (i32.mul ,var-ptr 4)
+                  ,(length octets))
             (free ,var-ptr))))
 
 (defun.wat test-log-string () ()
@@ -296,7 +291,7 @@
     (init-memory)
     (log-string "testaaaaa" ptr)
     (log-string "|斑|鳩|" ptr))
-  (log (last-empty-head-p (i32.const 2))) ; expect 1
+  (log (no-memory-allocated-p)) ; expect 1
   )
 
 (defexport.wat test-log-string (func test-log-string))
@@ -317,9 +312,9 @@
     (log-string "Alloc(ptr,size,data...)" tmp-for-log)
     (log ptr)
     (log size)
-    (for f (:init (set-local i (i32.const 0))
+    (for f (:init (set-local i 0)
             :break (i32.ge-u i size)
-            :mod (set-local i (i32+ i (i32.const 1))))
+            :mod (set-local i (i32+ i 1)))
          (log (load-i32 (i32+ ptr i))))))
 
 (defun.wat dump-allocated-memory-rec ((ptr i32) (next-head i32)) ()
@@ -336,7 +331,7 @@
     (unless (last-empty-head-p head)
       (set-local ptr (i32+ head
                            (get-empty-memory-size head)
-                           (i32.const 1)
+                           1
                            (get-header-size)))
       (set-local next-head (get-next-head head))
       (dump-allocated-memory-rec ptr next-head)
@@ -356,8 +351,8 @@
   (let ((ptr1 i32)
         (ptr2 i32))
     (init-memory)
-    (set-local ptr1 (malloc (i32.const 4)))
-    (set-local ptr2 (malloc (i32.const 5)))
+    (set-local ptr1 (malloc 4))
+    (set-local ptr2 (malloc 5))
     (free ptr1)
     (dump-memory)
     (init-memory)))
@@ -373,17 +368,17 @@
   (load-i32 ptr))
 
 (defun.wat get-type-data-offset ((ptr i32)) (i32)
-  (i32+ ptr (i32.const 1)))
+  (i32+ ptr 1))
 
 (defmacro deftype.wat (name size id)
   ;; TODO: Automatically asign id
   `(progn (defun.wat ,(symbolicate "MAKE-" name) () (i32)
             (let (((ptr i32) (malloc (i32+ (get-type-header-size)
-                                           (i32.const ,size)))))
-              (store-i32 ptr (i32.const ,id))
+                                           ,size))))
+              (store-i32 ptr ,id)
               (get-local ptr)))
           (defun.wat ,(symbolicate name "-ID-P") ((typ i32)) (i32)
-            (i32.eq typ (i32.const ,id)))
+            (i32.eq typ ,id))
           (defun.wat ,(symbolicate name "-P") ((type-ptr i32)) (i32)
             (,(symbolicate name "-ID-P") (get-type type-ptr)))))
 
@@ -430,7 +425,7 @@
 
 (defun.wat set-cdr ((cons-cell-ptr i32) (value i32)) ()
   (store-i32 (i32+ (get-type-data-offset cons-cell-ptr)
-                   (i32.const 1))
+                   1)
              value))
 
 (defun.wat free-cons-cell ((cons-cell-ptr i32)) ()
@@ -443,11 +438,11 @@
 (defun.wat atom ((type-ptr i32)) (i32)
   (let ((result i32))
     (cond ((i32-p type-ptr)
-           (set-local result (i32.const 1)))
+           (set-local result 1))
           ((symbol-p type-ptr)
-           (set-local result (i32.const 1)))
+           (set-local result 1))
           (t
-           (set-local result (i32.const 0))))
+           (set-local result 0)))
     (get-local result)))
 
 (defun.wat free-typed ((type-ptr i32)) ()
@@ -502,7 +497,7 @@
                                       (shared-ptr-ptr type-ptr2)))))
               (t (set-local result
                             (i32.eq type-ptr1 type-ptr2))))
-        (set-local result (i32.const 0)))
+        (set-local result 0))
     (get-local result)))
 
 ;; - test - ;;
@@ -513,13 +508,13 @@
         (test-ptr i32))
     ;; simple cons cell
     (set-local simple-cons
-               (cons (new-i32 (i32.const 1))
-                     (new-i32 (i32.const 2))))
+               (cons (new-i32 1)
+                     (new-i32 2)))
     (print-typed simple-cons)
     ;; list
-    (set-local lst (cons (new-i32 (i32.const 10))
-                         (cons (new-i32 (i32.const 20))
-                               (new-i32 (i32.const 30)))))
+    (set-local lst (cons (new-i32 10)
+                         (cons (new-i32 20)
+                               (new-i32 30))))
     (print-typed lst)
     ;; free
     (log (no-memory-allocated-p)) ; expect 0
@@ -539,7 +534,7 @@
     (if (shared-ptr-p ptr)
         (set-local result ptr)
         (progn (set-local result (make-shared-ptr))
-               (set-shared-ptr-ref-count result (i32.const 1))
+               (set-shared-ptr-ref-count result 1)
                (store-i32 (i32+ (get-type-data-offset result)
                                 1)
                           ptr)))
@@ -557,7 +552,7 @@
 (defun.wat deref-shared-ptr ((shared-ptr i32)) ()
   (let (((ref-count i32) (shared-ptr-ref-count shared-ptr))
         (tmp-for-log i32))
-    (if (i32.eq ref-count (i32.const 1))
+    (if (i32.eq ref-count 1)
         (progn (when (debug-p)
                  (log-string "free: " tmp-for-log)
                  (log shared-ptr))
@@ -608,9 +603,9 @@
 
 (defun.wat test-shared-ptr1 () ()
   (let (((tmp1 i32) (new-shared-ptr
-                     (new-i32 (i32.const 100))))
+                     (new-i32 100)))
         ((tmp2 i32) (new-shared-ptr
-                     (new-i32 (i32.const 200))))
+                     (new-i32 200)))
         (tmp3 i32)
         (tmp-for-log i32))
     (with-destruct (tmp1 tmp2 tmp3)
@@ -645,12 +640,12 @@
 (defun.wat length.sp ((s-ptr i32)) (i32)
   (let ((result i32))
     (with-destruct (s-ptr)
-      (set-local result (length.sp-rec $&s-ptr (i32.const 0))))
+      (set-local result (length.sp-rec $&s-ptr 0)))
     (get-local result)))
 
 (defun.wat test-shared-ptr2 () ()
-  (let (((lst i32) (cons.sp (new-i32 (i32.const 1))
-                            (new-i32 (i32.const 2))))
+  (let (((lst i32) (cons.sp (new-i32 1)
+                            (new-i32 2)))
         (tmp-for-log i32))
     (with-destruct (lst)
       (log-string "func2: before print" tmp-for-log)
@@ -665,12 +660,12 @@
     (log-string "func3 called: after destruct" tmp-for-log)))
 
 (defun.wat test-shared-ptr3 () ()
-  (let (((sp i32) (new-shared-ptr (new-i32 (i32.const 1))))
+  (let (((sp i32) (new-shared-ptr (new-i32 1)))
         (tmp-for-log i32))
     (with-destruct (sp)
       (log-string "func3: before call" tmp-for-log)
       (test-shared-ptr3-called $&sp)
-      (test-shared-ptr3-called (new-shared-ptr (new-i32 (i32.const 2))))
+      (test-shared-ptr3-called (new-shared-ptr (new-i32 2)))
       (log-string "func3: after call" tmp-for-log))
     (log-string "func3: after destruct" tmp-for-log)))
 
@@ -745,8 +740,8 @@
 
 (defun.wat new-scope () (i32)
   (let (((ptr i32) (make-scope)))
-    (store-i32 (get-type-data-offset ptr) (i32.const 0))
-    (store-i32 (i32+ (get-type-data-offset ptr) 1) (i32.const 0))
+    (store-i32 (get-type-data-offset ptr) 0)
+    (store-i32 (i32+ (get-type-data-offset ptr) 1) 0)
     (sp ptr)))
 
 (defun.wat push-scope ((scope i32) (new-scope i32)) (i32)
@@ -904,8 +899,8 @@
 (defun.wat next-var-cell-exist-p* ((ptr i32)) (i32)
   (let ((result i32))
     (if (null-ptr-p $*(get-var-cell-next* ptr))
-        (set-local result (i32.const 0))
-        (set-local result (i32.const 1)))
+        (set-local result 0)
+        (set-local result 1))
     (get-local result)))
 
 (defun.wat free-var-cell ((ptr i32)) ()
@@ -929,27 +924,27 @@
     (init-memory)
     (log-string "- var-cell -" tmp-for-log)
     (with-destruct (tmp res1 res2 res3)
-      (set-local tmp (new-var-cell (sp (new-symbol (i32.const 1)))
-                                   (sp (new-i32 (i32.const 10)))))
+      (set-local tmp (new-var-cell (sp (new-symbol 1))
+                                   (sp (new-i32 10))))
       ;; add
       (add-var-cell $&tmp
-                    (sp (new-symbol (i32.const 2)))
-                    (sp (new-i32 (i32.const 20))))
+                    (sp (new-symbol 2))
+                    (sp (new-i32 20)))
       ;; overwrite
       (add-var-cell $&tmp
-                    (sp (new-symbol (i32.const 2)))
-                    (sp (new-i32 (i32.const 30))))
+                    (sp (new-symbol 2))
+                    (sp (new-i32 30)))
       ;; check 1
       (set-local res1 (find-var-cell-by-symbol
-                       $&tmp (sp (new-symbol (i32.const 1)))))
+                       $&tmp (sp (new-symbol 1))))
       (log (get-i32 $*(get-var-cell-value* $*res1))) ; expect 10
       ;; check 2
       (set-local res2 (find-var-cell-by-symbol
-                       $&tmp (sp (new-symbol (i32.const 2)))))
+                       $&tmp (sp (new-symbol 2))))
       (log (get-i32 $*(get-var-cell-value* $*res2))) ; expect 30
       ;; check 3
       (set-local res3 (find-var-cell-by-symbol
-                       $&tmp (sp (new-symbol (i32.const 3)))))
+                       $&tmp (sp (new-symbol 3))))
       (log (null-ptr-p $*res3)) ; expect 1
       )
     (log (no-memory-allocated-p)) ; expect 1
@@ -971,41 +966,41 @@
       (set-local tmp (new-scope))
       ;; add pair 1
       (add-var-cell-to-scope $&tmp
-                             (sp (new-symbol (i32.const 1)))
-                             (sp (new-i32 (i32.const 10))))
+                             (sp (new-symbol 1))
+                             (sp (new-i32 10)))
       ;; add pair 2
       (add-var-cell-to-scope $&tmp
-                             (sp (new-symbol (i32.const 2)))
-                             (sp (new-i32 (i32.const 20))))
+                             (sp (new-symbol 2))
+                             (sp (new-i32 20)))
       ;; check 1
       (set-local res1 (get-symbol-value-in-scope
-                       $&tmp (sp (new-symbol (i32.const 1)))))
+                       $&tmp (sp (new-symbol 1))))
       (log (get-i32 $*res1)) ; expect 10
       ;; check 2
       (set-local res2 (get-symbol-value-in-scope
-                       $&tmp (sp (new-symbol (i32.const 2)))))
+                       $&tmp (sp (new-symbol 2))))
       (log (get-i32 $*res2)) ; expect 20
 
       ;; new scope
       (set-local tmp2 (push-scope $&tmp (new-scope)))
       ;; overwrite
       (add-var-cell-to-scope $&tmp2
-                             (sp (new-symbol (i32.const 2)))
-                             (sp (new-i32 (i32.const 200))))
+                             (sp (new-symbol 2))
+                             (sp (new-i32 200)))
       ;; check 3
       (set-local res3 (get-symbol-value-in-scope
-                       $&tmp2 (sp (new-symbol (i32.const 1)))))
+                       $&tmp2 (sp (new-symbol 1))))
       (log (get-i32 $*res3)) ; expect 10
       ;; check 4
       (set-local res4 (get-symbol-value-in-scope
-                       $&tmp2 (sp (new-symbol (i32.const 2)))))
+                       $&tmp2 (sp (new-symbol 2))))
       (log (get-i32 $*res4)) ; expect 200
 
       ;; reverse to prev scope
       (set-local tmp3 (pop-scope $&tmp2))
       ;; check 4
       (set-local res5 (get-symbol-value-in-scope
-                       $&tmp3 (sp (new-symbol (i32.const 2)))))
+                       $&tmp3 (sp (new-symbol 2))))
       (log (get-i32 $*res5)) ; expect 20
       )
     (log (no-memory-allocated-p)) ; expect 1
@@ -1025,41 +1020,41 @@
       (set-local tmp (new-env))
       ;; add pair 1
       (add-var-cell-to-env $&tmp
-                           (sp (new-symbol (i32.const 1)))
-                           (sp (new-i32 (i32.const 10))))
+                           (sp (new-symbol 1))
+                           (sp (new-i32 10)))
       ;; add pair 2
       (add-var-cell-to-env $&tmp
-                           (sp (new-symbol (i32.const 2)))
-                           (sp (new-i32 (i32.const 20))))
+                           (sp (new-symbol 2))
+                           (sp (new-i32 20)))
       ;; check 1
       (set-local res1 (get-symbol-value
-                       $&tmp (sp (new-symbol (i32.const 1)))))
+                       $&tmp (sp (new-symbol 1))))
       (log (get-i32 $*res1)) ; expect 10
       ;; check 2
       (set-local res2 (get-symbol-value
-                       $&tmp (sp (new-symbol (i32.const 2)))))
+                       $&tmp (sp (new-symbol 2))))
       (log (get-i32 $*res2)) ; expect 20
 
       ;; enter scope
       (enter-scope $&tmp)
       ;; overwrite
       (add-var-cell-to-env $&tmp
-                           (sp (new-symbol (i32.const 2)))
-                           (sp (new-i32 (i32.const 200))))
+                           (sp (new-symbol 2))
+                           (sp (new-i32 200)))
       ;; check 3
       (set-local res3 (get-symbol-value
-                       $&tmp (sp (new-symbol (i32.const 1)))))
+                       $&tmp (sp (new-symbol 1))))
       (log (get-i32 $*res3)) ; expect 10
       ;; check 4
       (set-local res4 (get-symbol-value
-                       $&tmp (sp (new-symbol (i32.const 2)))))
+                       $&tmp (sp (new-symbol 2))))
       (log (get-i32 $*res4)) ; expect 200
 
       ;; exit scope
       (exit-scope $&tmp)
       ;; check 4
       (set-local res5 (get-symbol-value
-                       $&tmp (sp (new-symbol (i32.const 2)))))
+                       $&tmp (sp (new-symbol 2))))
       (log (get-i32 $*res5)) ; expect 20
       )
     (log (no-memory-allocated-p)) ; expect 1
@@ -1106,10 +1101,9 @@
 
 (defmacro def-named-symbol (name id)
   `(progn (defun.wat ,(symbolicate "NEW-SYMBOL-" name) () (i32)
-            (sp (new-symbol (i32.const ,id))))
+            (sp (new-symbol ,id)))
           (defun.wat ,(symbolicate "SYMBOL-" name "-P*") ((ptr i32)) (i32)
-            (i32.eq (get-symbol-id ptr)
-                    (i32.const ,id)))))
+            (i32.eq (get-symbol-id ptr) ,id))))
 
 (def-named-symbol atom   -1)
 (def-named-symbol eq     -2)
@@ -1124,19 +1118,19 @@
 ;; TODO: Move to more proper place
 (defun.wat not ((bool i32)) (i32)
   (let ((result i32))
-    (if (i32.eq bool (i32.const 0))
-        (set-local result (i32.const 1))
-        (set-local result (i32.const 0)))
+    (if (i32.eq bool 0)
+        (set-local result 1)
+        (set-local result 0))
     (get-local result)))
 
 (defun.wat default-symbol-p ((sym i32)) (i32)
   (let ((result i32))
     (with-destruct (sym)
       (cond ((not (symbol-p $*sym))
-             (set-local result (i32.const 0)))
-            ((i32.lt-s (get-symbol-id $*sym) (i32.const 0))
-             (set-local result (i32.const 1)))
-            (t (set-local result (i32.const 0)))))
+             (set-local result 0))
+            ((i32.lt-s (get-symbol-id $*sym) 0)
+             (set-local result 1))
+            (t (set-local result 0))))
     (get-local result)))
 
 (defun.wat lambda-list-p ((s-ptr i32)) (i32)
@@ -1145,13 +1139,13 @@
         (head i32))
     (with-destruct (s-ptr head)
       (cond ((null-ptr-p $*s-ptr)
-             (set-local result (i32.const 1)))
+             (set-local result 1))
             ((not (cons-cell-p $*s-ptr))
-             (set-local result (i32.const 0)))
+             (set-local result 0))
             (t (set-local head (car.sp $&s-ptr))
                (if (symbol-p $*head)
                    (set-local result (lambda-list-p (cdr.sp $&s-ptr)))
-                   (set-local result (i32.const 0))))))
+                   (set-local result 0)))))
     (get-local result)))
 
 (defun.wat function-p ((s-ptr i32)) (i32)
@@ -1160,7 +1154,7 @@
         (head i32))
     (with-destruct (s-ptr head)
       (cond ((not (cons-cell-p $*s-ptr))
-             (set-local result (i32.const 0)))
+             (set-local result 0))
             (t (set-local head (car.sp $&s-ptr))
                (set-local result (symbol-lambda-p* $*head)))))
     (get-local result)))
@@ -1261,13 +1255,13 @@
                    (; if
                     (symbol-if-p* $*head)
                     (set-local tmp-scalar1 (length.sp $&rest))
-                    (when (i32.ne tmp-scalar1 (i32.const 2))
-                      (when (i32.ne tmp-scalar1 (i32.const 3))
+                    (when (i32.ne tmp-scalar1 2)
+                      (when (i32.ne tmp-scalar1 3)
                         (log-string "ERROR: \"if\" should get 2 or 3 args" tmp-for-log)))
                     (set-local tmp1 (interpret (car.sp $&rest) $&env))
                     (if (null-ptr-p $*tmp1)
                         ;; else
-                        (if (i32.eq tmp-scalar1 (i32.const 3))
+                        (if (i32.eq tmp-scalar1 3)
                             (set-local result
                                        (interpret (car.sp (cdr.sp (cdr.sp $&rest))) $&env))
                             (set-local result (sp (get-null-ptr))))
@@ -1321,22 +1315,22 @@
     (progn ; with-debug
       (log-string "- 111" tmp-for-log)
       (with-destruct (exp1)
-        (set-local exp1 (sp (new-i32 (i32.const 111))))
+        (set-local exp1 (sp (new-i32 111)))
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (atom 10)" tmp-for-log)
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-atom)
-                                 (new-i32 (i32.const 10))))
+                                 (new-i32 10)))
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
 
       (log-string "- (eq 10 10)" tmp-for-log)
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-eq)
-                                 (new-i32 (i32.const 10))
-                                 (new-i32 (i32.const 10))))
+                                 (new-i32 10)
+                                 (new-i32 10)))
         ;; expect 1
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
@@ -1344,8 +1338,8 @@
       (log-string "- (eq 10 20)" tmp-for-log)
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-eq)
-                                 (new-i32 (i32.const 10))
-                                 (new-i32 (i32.const 20))))
+                                 (new-i32 10)
+                                 (new-i32 20)))
         ;; expect 0
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
@@ -1353,8 +1347,8 @@
       (log-string "- (quote (1 2))" tmp-for-log)
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-quote)
-                                 (list.sp (new-i32 (i32.const 1))
-                                          (new-i32 (i32.const 2)))))
+                                 (list.sp (new-i32 1)
+                                          (new-i32 2))))
         ;; expect 1<br>2
         (print-typed (interpret $&exp1 (new-env)))
         )
@@ -1364,8 +1358,8 @@
       (with-destruct (exp1 res1)
         (set-local exp1 (list.sp (new-symbol-atom)
                                  (list.sp (new-symbol-quote)
-                                          (list.sp (new-i32 (i32.const 100))
-                                                   (new-i32 (i32.const 200))))))
+                                          (list.sp (new-i32 100)
+                                                   (new-i32 200)))))
         ;; expect 0
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p)) ; expect 1
@@ -1374,7 +1368,7 @@
       (with-destruct (exp1)
         (set-local exp1 (list.sp (list.sp (new-symbol-quote)
                                           (new-symbol-atom))
-                                 (new-i32 (i32.const 10))))
+                                 (new-i32 10)))
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
 
@@ -1382,8 +1376,8 @@
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-car)
                                  (list.sp (new-symbol-quote)
-                                          (cons.sp (new-i32 (i32.const 100))
-                                                   (new-i32 (i32.const 200))))))
+                                          (cons.sp (new-i32 100)
+                                                   (new-i32 200)))))
         ;; expect 100
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
@@ -1392,8 +1386,8 @@
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-cdr)
                                  (list.sp (new-symbol-quote)
-                                          (cons.sp (new-i32 (i32.const 100))
-                                                   (new-i32 (i32.const 200))))))
+                                          (cons.sp (new-i32 100)
+                                                   (new-i32 200)))))
         ; expect 200
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
@@ -1402,8 +1396,8 @@
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-car)
                                  (list.sp (new-symbol-cons)
-                                          (new-i32 (i32.const 100))
-                                          (new-i32 (i32.const 200)))))
+                                          (new-i32 100)
+                                          (new-i32 200))))
         ;; expect 100
         (print-typed (interpret $&exp1 (new-env))))
       (log (no-memory-allocated-p))     ; expect 1
@@ -1413,11 +1407,11 @@
         (set-local env (new-env))
         ;; (define x 100)
         (set-local exp1 (list.sp (new-symbol-define)
-                                 (new-symbol (i32.const 999))
-                                 (new-i32 (i32.const 100))))
+                                 (new-symbol 999)
+                                 (new-i32 100)))
         (set-local res1 (interpret $&exp1 $&env))
         ;; x
-        (set-local exp2 (sp (new-symbol (i32.const 999))))
+        (set-local exp2 (sp (new-symbol 999)))
         ;; expect 100
         (print-typed (interpret $&exp2 $&env)))
       (log (no-memory-allocated-p))     ; expect 1
@@ -1425,9 +1419,9 @@
       (log-string "- (if 1 10 20)" tmp-for-log)
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-if)
-                                 (new-i32 (i32.const 1))
-                                 (new-i32 (i32.const 10))
-                                 (new-i32 (i32.const 20))))
+                                 (new-i32 1)
+                                 (new-i32 10)
+                                 (new-i32 20)))
         (print-typed (interpret $&exp1 (new-env)))  ; expect 10
         )
       (log (no-memory-allocated-p)); expect 1
@@ -1436,8 +1430,8 @@
       (with-destruct (exp1)
         (set-local exp1 (list.sp (new-symbol-if)
                                  (sp (get-null-ptr))
-                                 (new-i32 (i32.const 10))
-                                 (new-i32 (i32.const 20))))
+                                 (new-i32 10)
+                                 (new-i32 20)))
         (print-typed (interpret $&exp1 (new-env)))  ; expect 10
         )
       (log (no-memory-allocated-p)); expect 1
@@ -1447,7 +1441,7 @@
         (set-local env (new-env))
         (set-local exp1 (list.sp (new-symbol-if)
                                  (sp (get-null-ptr))
-                                 (new-i32 (i32.const 10))))
+                                 (new-i32 10)))
         (set-local res1 (interpret $&exp1 $&env))
         (log (null-ptr-p $*res1))  ; expect 1
         )
@@ -1457,12 +1451,12 @@
       (with-destruct (exp1 env)
         (set-local env (new-env))
         (set-local exp1 (list.sp (list.sp (new-symbol-lambda)
-                                          (list.sp (new-symbol (i32.const 999)))
+                                          (list.sp (new-symbol 999))
                                           (list.sp (new-symbol-car)
-                                                   (new-symbol (i32.const 999))))
+                                                   (new-symbol 999)))
                                  (list.sp (new-symbol-cons)
-                                          (new-i32 (i32.const 1))
-                                          (new-i32 (i32.const 2)))))
+                                          (new-i32 1)
+                                          (new-i32 2))))
         (print-typed (interpret $&exp1 $&env))  ; expect 1
         )
       (log (no-memory-allocated-p)); expect 1
@@ -1473,35 +1467,33 @@
 ;; --- --- ;;
 
 (defun.wat sample ((x i32)) (i32)
-  (let (((tmp i32) (i32.const 100)))
+  (let (((tmp i32) 100))
     (i32.add x tmp)))
 
 (defun.wat test-if ((x i32)) ()
   (if (i32.eqz x)
-      (log (i32.const 10))
-      (log (i32.const 20))))
+      (log 10)
+      (log 20)))
 
 (defun.wat test-unless ((x i32)) ()
   (unless (i32.eqz x)
-    (log (i32.const 30))))
+    (log 30)))
 
 (defun.wat test-cond ((x i32)) ()
-  (cond ((i32.eq x (i32.const 1))
-         (log (i32.const 111)))
-        ((i32.eq x (i32.const 2))
-         (log (i32.const 222)))
-        (t (log (i32.const 999)))))
+  (cond ((i32.eq x 1)
+         (log 111))
+        ((i32.eq x 2)
+         (log 222))
+        (t (log 999))))
 
-(defmacro.wat incf-i32 (place &optional (added '(i32.const 1)))
-  `(progn (get-local ,place)
-          ,added
-          (i32.add)
-          (set-local ,place)))
+(defmacro.wat incf-i32 (place &optional (added 1))
+  `(set-local ,place
+              (i32.add (get-local ,place) ,added)))
 
 (defun.wat test-for () ()
   (let ((i i32)
-        ((max i32) (i32.const 5)))
-    (for f (:init (set-local i (i32.const 1))
+        ((max i32) 5))
+    (for f (:init (set-local i 1)
             :break (i32.ge-u i max)
             :mod (incf-i32 i))
          (log i))))
@@ -1513,45 +1505,46 @@
   (log (i32+ x 1 2)))
 
 (defun.wat test-memory () ()
-  (i32.store (i32.const 5)
-             (i32.const 111))
-  (log (i32.load (i32.const 5))))
+  (i32.store 5 111)
+  (log (i32.load 5)))
 
 (defun.wat test-global () ()
-  (set-global g (i32.const 99))
+  (set-global g 99)
   (log g))
 
 ;; factorial
 (defun.wat test-rec ((x i32)) (i32)
   (let ((result i32))
-    (if (i32.ge-u (i32.const 1) x)
-        (set-local result (i32.const 1))
-        (progn (i32.mul x
-                        (test-rec (i32.sub x (i32.const 1))))
-               (set-local result)))
+    (if (i32.ge-u 1 x)
+        (set-local result 1)
+        (set-local result
+                   (i32.mul x
+                            (test-rec (i32.sub x 1)))))
     (get-local result)))
 
 (defun.wat test-simple-log-string () ()
-  (i32.store8 (i32.const 0) (i32.const 227))
-  (i32.store8 (i32.const 1) (i32.const 129))
-  (i32.store8 (i32.const 2) (i32.const 130))
-  (i32.store8 (i32.const 3) (i32.const 97))
-  (logs (i32.const 0) (i32.const 4)))
+  ;; あ
+  (i32.store8 0 227)
+  (i32.store8 1 129)
+  (i32.store8 2 130)
+  ;; a
+  (i32.store8 3 97)
+  (logs 0 4))
 
 (defun.wat test-print () ()
-  (log (sample (i32.const 300)))
-  (test-if (i32.const 0))
-  (test-if (i32.const 1))
-  (test-unless (i32.const 0))
-  (test-unless (i32.const 1))
-  (test-cond (i32.const 1))
-  (test-cond (i32.const 2))
-  (test-cond (i32.const 3))
+  (log (sample 300))
+  (test-if 0)
+  (test-if 1)
+  (test-unless 0)
+  (test-unless 1)
+  (test-cond 1)
+  (test-cond 2)
+  (test-cond 3)
   (test-for)
-  (test-plus (i32.const 100))
+  (test-plus 100)
   (test-memory)
   (test-global)
-  (log (test-rec (i32.const 5)))
+  (log (test-rec 5))
   (test-simple-log-string))
 
 (defexport.wat exported-func (func test-print))
